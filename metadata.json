@@ -1,0 +1,6 @@
+{
+  "name": "BarberApp Pro",
+  "description": "Professional barber shop management application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
