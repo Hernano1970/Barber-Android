@@ -41,10 +41,11 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             StatCard(
-                title = "Turnos Hoy",
+                title = "Turnos Hoy / Próximos",
                 value = todayAppointments.size.toString(),
                 icon = Icons.Filled.CalendarToday,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate("upcoming_appointments") }
             )
             Spacer(modifier = Modifier.width(16.dp))
             StatCard(
@@ -72,19 +73,58 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
         }
         
         Spacer(modifier = Modifier.height(32.dp))
-        Text("Próximos Turnos", style = MaterialTheme.typography.titleLarge)
+        Text("Accesos Rápidos", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
         
-        if (todayAppointments.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text("No hay turnos para hoy.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            QuickActionButton(icon = Icons.Filled.People, label = "Clientes") {
+                navController.navigate("clients")
+            }
+            QuickActionButton(icon = Icons.Filled.ContentCut, label = "Servicios") {
+                navController.navigate("services")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UpcomingAppointmentsScreen(viewModel: MainViewModel, navController: NavController) {
+    val allAppointments by viewModel.allAppointments.collectAsState()
+    val clients by viewModel.clients.collectAsState()
+    val services by viewModel.activeServices.collectAsState()
+
+    val today = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val upcomingAppointments = allAppointments.filter { it.dateTimestamp >= today }.sortedBy { it.dateTimestamp }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Próximos Turnos") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        if (upcomingAppointments.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("No hay próximos turnos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(todayAppointments.sortedBy { it.dateTimestamp }) { appt ->
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(upcomingAppointments) { appt ->
                     val client = clients.find { it.id == appt.clientId }
-                    val service = activeServices.find { it.id == appt.serviceId }
-                    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                    val service = services.find { it.id == appt.serviceId }
+                    val dateFormat = SimpleDateFormat("EEEE, dd MMM HH:mm", Locale("es", "ES"))
                     val isPending = !appt.isPaid
 
                     Card(
@@ -93,7 +133,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                     ) {
                         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(timeFormat.format(Date(appt.dateTimestamp)), fontWeight = FontWeight.Bold)
+                                Text(dateFormat.format(Date(appt.dateTimestamp)).replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(client?.fullName ?: "Desconocido", style = MaterialTheme.typography.bodyMedium)
                                 Text(service?.name ?: "Servicio", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -121,25 +161,48 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
 }
 
 @Composable
-fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+fun QuickActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+        FloatingActionButton(onClick = onClick, containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val clickModifier = if (onClick != null) Modifier.clickable { onClick() } else Modifier
+    Card(modifier = modifier.then(clickModifier), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(title, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
     val clients by viewModel.clients.collectAsState()
     var showOptionsForClient by remember { mutableStateOf<com.example.data.Client?>(null) }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Clientes") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate("add_client") }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add Client")
@@ -150,7 +213,19 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
             items(clients) { client ->
                 ListItem(
                     headlineContent = { Text(client.fullName, fontWeight = FontWeight.Bold) },
-                    supportingContent = { Text(client.phone) },
+                    supportingContent = {
+                        Column {
+                            Text(client.phone)
+                            if (client.observations.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Nota: ${client.observations}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
                     leadingContent = {
                         Icon(Icons.Filled.Person, contentDescription = null)
                     },
@@ -192,11 +267,22 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicesScreen(viewModel: MainViewModel, navController: NavController) {
     val services by viewModel.activeServices.collectAsState()
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Servicios") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate("add_service") }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add Service")
@@ -225,6 +311,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
     val appointments by viewModel.allAppointments.collectAsState()
     val clients by viewModel.clients.collectAsState()
     val services by viewModel.activeServices.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var selectedDate by remember { mutableStateOf(Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
@@ -245,12 +332,24 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
 
     val startHour = workingHours?.first ?: 8
     val endHour = workingHours?.second ?: 20
-    val hours = (startHour..endHour).toList()
+    val slots = mutableListOf<Pair<Int, Int>>()
+    for (h in startHour..endHour) {
+        slots.add(h to 0)
+        if (h != endHour) {
+            slots.add(h to 30)
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("add_appointment") }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Appointment")
+            val isPastDay = (selectedDate.clone() as Calendar).apply { 
+                add(Calendar.DAY_OF_MONTH, 1) 
+            }.timeInMillis <= System.currentTimeMillis()
+
+            if (!isPastDay) {
+                FloatingActionButton(onClick = { navController.navigate("add_appointment") }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Appointment")
+                }
             }
         }
     ) { padding ->
@@ -304,28 +403,37 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
             } else {
                 // Time Slots
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(hours) { hour ->
+                    items(slots) { slot ->
                         val slotStart = selectedDate.clone() as Calendar
-                        slotStart.set(Calendar.HOUR_OF_DAY, hour)
+                        slotStart.set(Calendar.HOUR_OF_DAY, slot.first)
+                        slotStart.set(Calendar.MINUTE, slot.second)
                         
                         val slotEnd = slotStart.clone() as Calendar
-                        slotEnd.add(Calendar.HOUR_OF_DAY, 1)
+                        slotEnd.add(Calendar.MINUTE, 30) // Check if the 30-min slot is occupied
 
-                        val apptsInSlot = appointments.filter { 
-                            it.dateTimestamp >= slotStart.timeInMillis && it.dateTimestamp < slotEnd.timeInMillis 
+                        val isPastSlot = slotStart.timeInMillis < Calendar.getInstance().timeInMillis
+
+                        // An appointment occupies this slot if its start time + duration > slotStart
+                        // AND its start time < slotEnd
+                        val apptsInSlot = appointments.filter { appt ->
+                            val service = services.find { it.id == appt.serviceId }
+                            val duration = service?.durationMinutes ?: 30
+                            val apptEnd = appt.dateTimestamp + (duration * 60 * 1000)
+                            
+                            appt.dateTimestamp < slotEnd.timeInMillis && apptEnd > slotStart.timeInMillis
                         }
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { 
+                                .clickable(enabled = apptsInSlot.isEmpty() && !isPastSlot) { 
                                     navController.navigate("add_appointment?timestamp=${slotStart.timeInMillis}")
                                 }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.Top
                         ) {
                             Text(
-                                text = String.format("%02d:00", hour),
+                                text = String.format("%02d:%02d", slot.first, slot.second),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.width(60.dp).padding(top = 8.dp)
@@ -334,31 +442,46 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             Column(modifier = Modifier.weight(1f)) {
                                 if (apptsInSlot.isEmpty()) {
                                     Card(
-                                        modifier = Modifier.fillMaxWidth().height(60.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isPastSlot) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        )
                                     ) {
                                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Text("+ Disponible", color = MaterialTheme.colorScheme.primary)
+                                            Text(
+                                                text = if (isPastSlot) "No Disponible" else "+ Disponible", 
+                                                color = if (isPastSlot) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                            )
                                         }
                                     }
                                 } else {
                                     apptsInSlot.forEach { appt ->
                                         val client = clients.find { it.id == appt.clientId }
                                         val service = services.find { it.id == appt.serviceId }
+                                        val isOngoing = appt.dateTimestamp < slotStart.timeInMillis
+                                        
                                         Card(
                                             modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).clickable { showOptionsForAppt = appt },
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (isOngoing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) 
+                                                                 else MaterialTheme.colorScheme.primaryContainer
+                                            )
                                         ) {
                                             Column(modifier = Modifier.padding(12.dp)) {
-                                                Text("${client?.fullName ?: "Desconocido"} - ${service?.name ?: "Servicio"}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                                Text(timeFormat.format(Date(appt.dateTimestamp)) + " • " + appt.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                                if (appt.observations.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text("Nota turno: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
-                                                }
-                                                if (!client?.observations.isNullOrBlank()) {
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text("Nota cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                if (isOngoing) {
+                                                    Text("Continuación: ${client?.fullName ?: "Desconocido"} (${service?.name ?: "Servicio"})", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                } else {
+                                                    Text("${client?.fullName ?: "Desconocido"} - ${service?.name ?: "Servicio"} (${service?.durationMinutes ?: 0} min)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                    Text(timeFormat.format(java.util.Date(appt.dateTimestamp)) + " • " + appt.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                    if (appt.observations.isNotBlank()) {
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text("Nota turno: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                    }
+                                                    if (!client?.observations.isNullOrBlank()) {
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text("Nota cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                    }
                                                 }
                                             }
                                         }
@@ -397,7 +520,6 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             Text("Eliminar", color = MaterialTheme.colorScheme.error)
                         }
                         
-                        val context = LocalContext.current
                         if (client != null && client.phone.isNotBlank()) {
                             TextButton(onClick = {
                                 val template = viewModel.appSettings.whatsappMessageTemplate

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -38,19 +39,37 @@ fun AddClientScreen(viewModel: MainViewModel, navController: NavController) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre Completo") }, modifier = Modifier.fillMaxWidth())
+            var showError by remember { mutableStateOf(false) }
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it; showError = false },
+                label = { Text("Nombre Completo *") },
+                isError = showError,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (showError) {
+                Text("El nombre es requerido", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Nota / Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = {
-                if (name.isNotBlank()) {
-                    viewModel.addClient(name, phone, obs)
-                    navController.popBackStack()
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
+                    Text("Cancelar")
                 }
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("Guardar Cliente")
+                Button(onClick = {
+                    if (name.isNotBlank()) {
+                        viewModel.addClient(name, phone, obs)
+                        navController.popBackStack()
+                    } else {
+                        showError = true
+                    }
+                }, modifier = Modifier.weight(1f)) {
+                    Text("Guardar")
+                }
             }
         }
     }
@@ -84,19 +103,37 @@ fun EditClientScreen(viewModel: MainViewModel, navController: NavController, cli
             }
         } else {
             Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre Completo") }, modifier = Modifier.fillMaxWidth())
+                var showError by remember(clientToEdit) { mutableStateOf(false) }
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; showError = false },
+                    label = { Text("Nombre Completo *") },
+                    isError = showError,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (showError) {
+                    Text("El nombre es requerido", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Nota / Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = {
-                    if (name.isNotBlank()) {
-                        viewModel.updateClient(clientToEdit.copy(fullName = name, phone = phone, observations = obs))
-                        navController.popBackStack()
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
+                        Text("Cancelar")
                     }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Actualizar Cliente")
+                    Button(onClick = {
+                        if (name.isNotBlank()) {
+                            viewModel.updateClient(clientToEdit.copy(fullName = name, phone = phone, observations = obs))
+                            navController.popBackStack()
+                        } else {
+                            showError = true
+                        }
+                    }, modifier = Modifier.weight(1f)) {
+                        Text("Actualizar")
+                    }
                 }
             }
         }
@@ -124,7 +161,18 @@ fun AddServiceScreen(viewModel: MainViewModel, navController: NavController) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre del Servicio") }, modifier = Modifier.fillMaxWidth())
+            var showError by remember { mutableStateOf(false) }
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it; showError = false },
+                label = { Text("Nombre del Servicio *") },
+                isError = showError,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (showError) {
+                Text("El nombre es requerido", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = priceStr, onValueChange = { priceStr = it }, label = { Text("Precio ($)") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
@@ -132,15 +180,22 @@ fun AddServiceScreen(viewModel: MainViewModel, navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = {
-                val price = priceStr.toDoubleOrNull() ?: 0.0
-                val duration = durationStr.toIntOrNull() ?: 0
-                if (name.isNotBlank()) {
-                    viewModel.addService(name, price, duration, desc)
-                    navController.popBackStack()
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
+                    Text("Cancelar")
                 }
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("Guardar Servicio")
+                Button(onClick = {
+                    val price = priceStr.toDoubleOrNull() ?: 0.0
+                    val duration = durationStr.toIntOrNull() ?: 0
+                    if (name.isNotBlank()) {
+                        viewModel.addService(name, price, duration, desc)
+                        navController.popBackStack()
+                    } else {
+                        showError = true
+                    }
+                }, modifier = Modifier.weight(1f)) {
+                    Text("Guardar")
+                }
             }
         }
     }
@@ -157,6 +212,11 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
     var selectedServiceId by remember { mutableStateOf<Int?>(null) }
     var observations by remember { mutableStateOf("") }
     
+    var isCasualClient by remember { mutableStateOf(false) }
+    var casualClientName by remember { mutableStateOf("") }
+    var casualClientPhone by remember { mutableStateOf("") }
+    var casualClientObs by remember { mutableStateOf("") }
+    
     var clientExpanded by remember { mutableStateOf(false) }
     var serviceExpanded by remember { mutableStateOf(false) }
 
@@ -167,8 +227,9 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
     var selectedDate by remember { mutableStateOf(calendar.timeInMillis) }
     
     // Derived UI states
-    val selectedClientName = clients.find { it.id == selectedClientId }?.fullName ?: "Seleccionar Cliente"
-    val selectedServiceName = services.find { it.id == selectedServiceId }?.name ?: "Seleccionar Servicio"
+    val selectedClientName = if (isCasualClient) "-- Cliente Casual / Manual --" else clients.find { it.id == selectedClientId }?.fullName ?: "Seleccionar Cliente"
+    val selectedService = services.find { it.id == selectedServiceId }
+    val selectedServiceName = selectedService?.let { "${it.name} (${it.durationMinutes} min)" } ?: "Seleccionar Servicio"
 
     val datePickerDialog = DatePickerDialog(
         context,
@@ -223,16 +284,50 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                     expanded = clientExpanded,
                     onDismissRequest = { clientExpanded = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("-- Cliente Casual / Manual --", fontWeight = FontWeight.Bold) },
+                        onClick = {
+                            isCasualClient = true
+                            selectedClientId = null
+                            clientExpanded = false
+                        }
+                    )
                     clients.forEach { client ->
                         DropdownMenuItem(
                             text = { Text(client.fullName) },
                             onClick = {
+                                isCasualClient = false
                                 selectedClientId = client.id
                                 clientExpanded = false
                             }
                         )
                     }
                 }
+            }
+
+            if (isCasualClient) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = casualClientName,
+                    onValueChange = { casualClientName = it },
+                    label = { Text("Nombre (Nuevo Cliente) *") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = casualClientPhone,
+                    onValueChange = { casualClientPhone = it },
+                    label = { Text("Teléfono (Opcional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = casualClientObs,
+                    onValueChange = { casualClientObs = it },
+                    label = { Text("Nota / Observaciones (Opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -256,7 +351,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                 ) {
                     services.forEach { service ->
                         DropdownMenuItem(
-                            text = { Text(service.name) },
+                            text = { Text("${service.name} (${service.durationMinutes} min)") },
                             onClick = {
                                 selectedServiceId = service.id
                                 serviceExpanded = false
@@ -269,32 +364,71 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             Spacer(modifier = Modifier.height(16.dp))
             
             val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "ES"))
+            val isPastDate = selectedDate < (System.currentTimeMillis() - 60_000) // 1 minute leeway
+
             OutlinedTextField(
                 value = sdf.format(Date(selectedDate)),
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Fecha y Hora") },
+                isError = isPastDate,
                 modifier = Modifier.fillMaxWidth().clickable { datePickerDialog.show() },
                 enabled = false,
                 colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    disabledTextColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
+            if (isPastDate) {
+                Text(
+                    text = "No se pueden agendar turnos en fechas u horarios pasados.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
             
             Spacer(modifier = Modifier.height(24.dp))
+            var showSnackbar by remember { mutableStateOf(false) }
+            
             Button(onClick = {
-                if (selectedClientId != null && selectedServiceId != null) {
+                if (isPastDate) {
+                    showSnackbar = true
+                    return@Button
+                }
+                if (isCasualClient && casualClientName.isNotBlank() && selectedServiceId != null) {
+                    viewModel.addAppointmentWithNewClient(
+                        clientName = casualClientName,
+                        clientPhone = casualClientPhone,
+                        clientObs = casualClientObs,
+                        serviceId = selectedServiceId!!,
+                        date = selectedDate,
+                        apptObs = observations
+                    )
+                    navController.popBackStack()
+                } else if (selectedClientId != null && selectedServiceId != null) {
                     viewModel.addAppointment(selectedClientId!!, selectedServiceId!!, selectedDate, observations)
                     navController.popBackStack()
                 }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Confirmar Turno")
+            }
+            if (showSnackbar) {
+                Snackbar(
+                    modifier = Modifier.padding(top = 8.dp),
+                    action = {
+                        TextButton(onClick = { showSnackbar = false }) {
+                            Text("OK")
+                        }
+                    }
+                ) {
+                    Text("Error: El horario seleccionado ya ha pasado.")
+                }
             }
         }
     }
@@ -325,7 +459,8 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
     
     // Derived UI states
     val selectedClientName = clients.find { it.id == selectedClientId }?.fullName ?: "Seleccionar Cliente"
-    val selectedServiceName = services.find { it.id == selectedServiceId }?.name ?: "Seleccionar Servicio"
+    val selectedService = services.find { it.id == selectedServiceId }
+    val selectedServiceName = selectedService?.let { "${it.name} (${it.durationMinutes} min)" } ?: "Seleccionar Servicio"
 
     val datePickerDialog = DatePickerDialog(
         context,
@@ -418,7 +553,7 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                     ) {
                         services.forEach { service ->
                             DropdownMenuItem(
-                                text = { Text(service.name) },
+                                text = { Text("${service.name} (${service.durationMinutes} min)") },
                                 onClick = {
                                     selectedServiceId = service.id
                                     serviceExpanded = false
@@ -431,26 +566,43 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "ES"))
+                val isPastDate = selectedDate < (System.currentTimeMillis() - 60_000) // 1 minute leeway
+
                 OutlinedTextField(
                     value = sdf.format(Date(selectedDate)),
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Fecha y Hora") },
+                    isError = isPastDate,
                     modifier = Modifier.fillMaxWidth().clickable { datePickerDialog.show() },
                     enabled = false,
                     colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        disabledTextColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        disabledBorderColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        disabledLabelColor = if (isPastDate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
+                if (isPastDate) {
+                    Text(
+                        text = "No se pueden agendar turnos en fechas u horarios pasados.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 
                 Spacer(modifier = Modifier.height(24.dp))
+                var showSnackbar by remember { mutableStateOf(false) }
+
                 Button(onClick = {
+                    if (isPastDate) {
+                        showSnackbar = true
+                        return@Button
+                    }
                     if (selectedClientId != null && selectedServiceId != null) {
                         viewModel.updateAppointment(
                             appt.copy(
@@ -464,6 +616,18 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                     }
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text("Actualizar Turno")
+                }
+                if (showSnackbar) {
+                    Snackbar(
+                        modifier = Modifier.padding(top = 8.dp),
+                        action = {
+                            TextButton(onClick = { showSnackbar = false }) {
+                                Text("OK")
+                            }
+                        }
+                    ) {
+                        Text("Error: El horario seleccionado ya ha pasado.")
+                    }
                 }
             }
         }

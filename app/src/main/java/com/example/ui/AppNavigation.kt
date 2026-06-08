@@ -26,8 +26,6 @@ val bottomNavItems = listOf(
     Screen.Dashboard,
     Screen.Agenda,
     Screen.Billing,
-    Screen.Clients,
-    Screen.Services,
     Screen.Settings
 )
 
@@ -41,13 +39,15 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(businessName) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            if (bottomNavItems.any { it.route == currentRoute } || currentRoute == null) {
+                TopAppBar(
+                    title = { Text(businessName) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
-            )
+            }
         },
         bottomBar = {
             if (bottomNavItems.any { it.route == currentRoute } || currentRoute == null) {
@@ -104,6 +104,9 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             }
             composable("settings_whatsapp") {
                 WhatsAppSettingsScreen(viewModel, navController)
+            }
+            composable("upcoming_appointments") {
+                UpcomingAppointmentsScreen(viewModel, navController)
             }
             // Add Client
             composable("add_client") {

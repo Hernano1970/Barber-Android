@@ -12,7 +12,7 @@ interface ClientDao {
     fun getClientById(id: Int): Flow<Client?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertClient(client: Client)
+    suspend fun insertClient(client: Client): Long
 
     @Delete
     suspend fun deleteClient(client: Client)

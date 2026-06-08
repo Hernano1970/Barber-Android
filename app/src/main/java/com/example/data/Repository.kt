@@ -7,7 +7,7 @@ class Repository(private val database: AppDatabase) {
     val allClients: Flow<List<Client>> = database.clientDao().getAllClients()
     val clientCount: Flow<Int> = database.clientDao().getClientCount()
     
-    suspend fun insertClient(client: Client) = database.clientDao().insertClient(client)
+    suspend fun insertClient(client: Client): Long = database.clientDao().insertClient(client)
     suspend fun deleteClient(client: Client) = database.clientDao().deleteClient(client)
 
     val activeServices: Flow<List<Service>> = database.serviceDao().getActiveServices()

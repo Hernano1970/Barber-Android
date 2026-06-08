@@ -109,6 +109,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addAppointmentWithNewClient(clientName: String, clientPhone: String, clientObs: String, serviceId: Int, date: Long, apptObs: String) {
+        viewModelScope.launch {
+            val clientId = repository.insertClient(Client(fullName = clientName, phone = clientPhone, observations = clientObs)).toInt()
+            repository.insertAppointment(
+                Appointment(
+                    clientId = clientId,
+                    serviceId = serviceId,
+                    dateTimestamp = date,
+                    observations = apptObs,
+                    status = "Pendiente"
+                )
+            )
+        }
+    }
+
     fun deleteAppointment(appointment: Appointment) {
         viewModelScope.launch {
             repository.deleteAppointment(appointment)
