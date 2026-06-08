@@ -219,7 +219,7 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
                             if (client.observations.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Nota: ${client.observations}",
+                                    text = "Observaciones/Cliente: ${client.observations}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -476,11 +476,11 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                                     Text(timeFormat.format(java.util.Date(appt.dateTimestamp)) + " • " + appt.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                                     if (appt.observations.isNotBlank()) {
                                                         Spacer(modifier = Modifier.height(4.dp))
-                                                        Text("Nota turno: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                        Text("Observaciones/Agenda: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                                                     }
                                                     if (!client?.observations.isNullOrBlank()) {
                                                         Spacer(modifier = Modifier.height(4.dp))
-                                                        Text("Nota cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                        Text("Observaciones/Cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                                                     }
                                                 }
                                             }

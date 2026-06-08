@@ -54,7 +54,7 @@ fun AddClientScreen(viewModel: MainViewModel, navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Nota / Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Observaciones/Cliente") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
@@ -118,7 +118,7 @@ fun EditClientScreen(viewModel: MainViewModel, navController: NavController, cli
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Nota / Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = obs, onValueChange = { obs = it }, label = { Text("Observaciones/Cliente") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
@@ -324,7 +324,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                 OutlinedTextField(
                     value = casualClientObs,
                     onValueChange = { casualClientObs = it },
-                    label = { Text("Nota / Observaciones (Opcional)") },
+                    label = { Text("Observaciones/Cliente") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3
                 )
@@ -391,7 +391,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones/Agenda") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
             
             Spacer(modifier = Modifier.height(24.dp))
             var showSnackbar by remember { mutableStateOf(false) }
@@ -593,7 +593,7 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones/Agenda") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 var showSnackbar by remember { mutableStateOf(false) }
