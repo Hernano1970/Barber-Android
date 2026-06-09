@@ -161,22 +161,63 @@ fun AddServiceScreen(viewModel: MainViewModel, navController: NavController) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            var showError by remember { mutableStateOf(false) }
+            var errorMessage by remember { mutableStateOf<String?>(null) }
+            val validDurations = listOf(15, 30, 45, 60)
+            var expandedDuration by remember { mutableStateOf(false) }
+
+            if (errorMessage != null) {
+                AlertDialog(
+                    onDismissRequest = { errorMessage = null },
+                    title = { Text("Atención") },
+                    text = { Text(errorMessage!!) },
+                    confirmButton = {
+                        TextButton(onClick = { errorMessage = null }) { Text("OK") }
+                    }
+                )
+            }
 
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it; showError = false },
+                onValueChange = { name = it },
                 label = { Text("Nombre del Servicio *") },
-                isError = showError,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (showError) {
-                Text("El nombre es requerido", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = priceStr,
+                onValueChange = { priceStr = it },
+                label = { Text("Precio ($) *") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ExposedDropdownMenuBox(
+                expanded = expandedDuration,
+                onExpandedChange = { expandedDuration = !expandedDuration }
+            ) {
+                OutlinedTextField(
+                    value = durationStr.takeIf { it.isNotBlank() }?.let { "$it minutos" } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Duración (minutos) *") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDuration) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, true)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedDuration,
+                    onDismissRequest = { expandedDuration = false }
+                ) {
+                    validDurations.forEach { d ->
+                        DropdownMenuItem(
+                            text = { Text("$d minutos") },
+                            onClick = {
+                                durationStr = d.toString()
+                                expandedDuration = false
+                            }
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = priceStr, onValueChange = { priceStr = it }, label = { Text("Precio ($)") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = durationStr, onValueChange = { durationStr = it }, label = { Text("Duración (minutos)") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
             Spacer(modifier = Modifier.height(16.dp))
@@ -185,13 +226,139 @@ fun AddServiceScreen(viewModel: MainViewModel, navController: NavController) {
                     Text("Cancelar")
                 }
                 Button(onClick = {
-                    val price = priceStr.toDoubleOrNull() ?: 0.0
-                    val duration = durationStr.toIntOrNull() ?: 0
-                    if (name.isNotBlank()) {
+                    val price = priceStr.toDoubleOrNull()
+                    val duration = durationStr.toIntOrNull()
+                    if (name.isBlank()) {
+                        errorMessage = "Debe ingresar un Nombre de Servicio."
+                    } else if (price == null) {
+                        errorMessage = "Debe ingresar un Precio."
+                    } else if (price <= 0) {
+                        errorMessage = "El Precio debe ser mayor a cero."
+                    } else if (duration == null) {
+                        errorMessage = "Debe ingresar una Duración."
+                    } else if (!validDurations.contains(duration)) {
+                        errorMessage = "Debe seleccionar una duración válida para el servicio."
+                    } else {
                         viewModel.addService(name, price, duration, desc)
                         navController.popBackStack()
+                    }
+                }, modifier = Modifier.weight(1f)) {
+                    Text("Guardar")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditServiceScreen(viewModel: MainViewModel, navController: NavController, serviceId: Int) {
+    val services by viewModel.activeServices.collectAsState()
+    val serviceToEdit = services.find { it.id == serviceId }
+    
+    if (serviceToEdit == null) {
+        // Handle error or loading
+        return
+    }
+
+    var name by remember { mutableStateOf(serviceToEdit.name) }
+    var priceStr by remember { mutableStateOf(serviceToEdit.price.toString()) }
+    var durationStr by remember { mutableStateOf(serviceToEdit.durationMinutes.toString()) }
+    var desc by remember { mutableStateOf(serviceToEdit.description) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Editar Servicio") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
+            var errorMessage by remember { mutableStateOf<String?>(null) }
+            val validDurations = listOf(15, 30, 45, 60)
+            var expandedDuration by remember { mutableStateOf(false) }
+
+            if (errorMessage != null) {
+                AlertDialog(
+                    onDismissRequest = { errorMessage = null },
+                    title = { Text("Atención") },
+                    text = { Text(errorMessage!!) },
+                    confirmButton = {
+                        TextButton(onClick = { errorMessage = null }) { Text("OK") }
+                    }
+                )
+            }
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nombre del Servicio *") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = priceStr,
+                onValueChange = { priceStr = it },
+                label = { Text("Precio ($) *") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ExposedDropdownMenuBox(
+                expanded = expandedDuration,
+                onExpandedChange = { expandedDuration = !expandedDuration }
+            ) {
+                OutlinedTextField(
+                    value = durationStr.takeIf { it.isNotBlank() }?.let { "$it minutos" } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Duración (minutos) *") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDuration) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, true)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedDuration,
+                    onDismissRequest = { expandedDuration = false }
+                ) {
+                    validDurations.forEach { d ->
+                        DropdownMenuItem(
+                            text = { Text("$d minutos") },
+                            onClick = {
+                                durationStr = d.toString()
+                                expandedDuration = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { navController.popBackStack() }, modifier = Modifier.weight(1f)) {
+                    Text("Cancelar")
+                }
+                Button(onClick = {
+                    val price = priceStr.toDoubleOrNull()
+                    val duration = durationStr.toIntOrNull()
+                    if (name.isBlank()) {
+                        errorMessage = "Debe ingresar un Nombre de Servicio."
+                    } else if (price == null) {
+                        errorMessage = "Debe ingresar un Precio."
+                    } else if (price <= 0) {
+                        errorMessage = "El Precio debe ser mayor a cero."
+                    } else if (duration == null) {
+                        errorMessage = "Debe ingresar una Duración."
+                    } else if (!validDurations.contains(duration)) {
+                        errorMessage = "Debe seleccionar una duración válida para el servicio."
                     } else {
-                        showError = true
+                        viewModel.updateService(serviceToEdit.copy(name = name, price = price, durationMinutes = duration, description = desc))
+                        navController.popBackStack()
                     }
                 }, modifier = Modifier.weight(1f)) {
                     Text("Guardar")
@@ -204,6 +371,7 @@ fun AddServiceScreen(viewModel: MainViewModel, navController: NavController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController, initialTimestamp: Long = -1L) {
+    val allAppointments by viewModel.allAppointments.collectAsState()
     val clients by viewModel.clients.collectAsState()
     val services by viewModel.activeServices.collectAsState()
     val context = LocalContext.current
@@ -394,13 +562,10 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones/Agenda") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
             
             Spacer(modifier = Modifier.height(24.dp))
-            var showSnackbar by remember { mutableStateOf(false) }
-            
-            Button(onClick = {
-                if (isPastDate) {
-                    showSnackbar = true
-                    return@Button
-                }
+            var snackbarMessage by remember { mutableStateOf<String?>(null) }
+            var duplicateApptWarning by remember { mutableStateOf<com.example.data.Appointment?>(null) }
+
+            val saveAppointment = {
                 if (isCasualClient && casualClientName.isNotBlank() && selectedServiceId != null) {
                     viewModel.addAppointmentWithNewClient(
                         clientName = casualClientName,
@@ -415,19 +580,95 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                     viewModel.addAppointment(selectedClientId!!, selectedServiceId!!, selectedDate, observations)
                     navController.popBackStack()
                 }
+            }
+            
+            Button(onClick = {
+                if (isPastDate) {
+                    snackbarMessage = "Error: El horario seleccionado ya ha pasado."
+                    return@Button
+                }
+                if (selectedServiceId == null) {
+                    snackbarMessage = "Error: Debes seleccionar un servicio."
+                    return@Button
+                }
+                if (!isCasualClient && selectedClientId == null) {
+                    snackbarMessage = "Error: Debes seleccionar un cliente."
+                    return@Button
+                }
+
+                val durationMins = selectedService?.durationMinutes ?: 30
+                val requestedStart = selectedDate
+                val requestedEnd = requestedStart + (durationMins * 60 * 1000)
+
+                val overlappingAppt = allAppointments.find { a ->
+                    val s = services.find { it.id == a.serviceId }
+                    val dur = s?.durationMinutes ?: 30
+                    val aStart = a.dateTimestamp
+                    val aEnd = aStart + (dur * 60 * 1000)
+                    requestedStart < aEnd && requestedEnd > aStart
+                }
+
+                if (overlappingAppt != null) {
+                    val nextAppt = allAppointments.filter { it.dateTimestamp >= requestedStart }
+                                                  .minByOrNull { it.dateTimestamp }
+                    if (nextAppt != null && nextAppt.dateTimestamp > requestedStart) {
+                        val availableMins = (nextAppt.dateTimestamp - requestedStart) / (60 * 1000)
+                        snackbarMessage = "Solamente tienes $availableMins min disponibles antes del próximo turno. (El servicio dura $durationMins min)"
+                    } else {
+                        snackbarMessage = "El servicio se superpone con otro turno programado."
+                    }
+                    return@Button
+                }
+
+                val todayMidnight = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                }.timeInMillis
+
+                val duplicate = if (!isCasualClient && selectedClientId != null) {
+                    allAppointments.find { it.clientId == selectedClientId && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
+                } else null
+
+                if (duplicate != null) {
+                    duplicateApptWarning = duplicate
+                } else {
+                    saveAppointment()
+                }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Confirmar Turno")
             }
-            if (showSnackbar) {
+
+            if (duplicateApptWarning != null) {
+                AlertDialog(
+                    onDismissRequest = { duplicateApptWarning = null },
+                    title = { Text("Atención") },
+                    text = {
+                        val apptDate = java.text.SimpleDateFormat("dd/MM/yyyy", Locale("es", "ES")).format(Date(duplicateApptWarning!!.dateTimestamp))
+                        val apptTime = java.text.SimpleDateFormat("HH:mm", Locale("es", "ES")).format(Date(duplicateApptWarning!!.dateTimestamp))
+                        Text("Este cliente ya tiene un turno registrado el día $apptDate a las $apptTime. ¿Desea continuar?")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            duplicateApptWarning = null
+                            saveAppointment()
+                        }) { Text("OK") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { duplicateApptWarning = null }) { Text("Cancelar") }
+                    }
+                )
+            }
+
+            if (snackbarMessage != null) {
                 Snackbar(
                     modifier = Modifier.padding(top = 8.dp),
                     action = {
-                        TextButton(onClick = { showSnackbar = false }) {
+                        TextButton(onClick = { snackbarMessage = null }) {
                             Text("OK")
                         }
                     }
                 ) {
-                    Text("Error: El horario seleccionado ya ha pasado.")
+                    Text(snackbarMessage!!)
                 }
             }
         }
@@ -596,13 +837,10 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                 OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones/Agenda") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 
                 Spacer(modifier = Modifier.height(24.dp))
-                var showSnackbar by remember { mutableStateOf(false) }
+                var snackbarMessage by remember { mutableStateOf<String?>(null) }
+                var duplicateApptWarning by remember { mutableStateOf<com.example.data.Appointment?>(null) }
 
-                Button(onClick = {
-                    if (isPastDate) {
-                        showSnackbar = true
-                        return@Button
-                    }
+                val updateAppointment = {
                     if (selectedClientId != null && selectedServiceId != null) {
                         viewModel.updateAppointment(
                             appt.copy(
@@ -614,19 +852,92 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                         )
                         navController.popBackStack()
                     }
+                }
+
+                Button(onClick = {
+                    if (isPastDate) {
+                        snackbarMessage = "Error: El horario seleccionado ya ha pasado."
+                        return@Button
+                    }
+                    if (selectedServiceId == null || selectedClientId == null) {
+                        snackbarMessage = "Error: Verifica cliente y servicio."
+                        return@Button
+                    }
+                    
+                    val durationMins = selectedService?.durationMinutes ?: 30
+                    val requestedStart = selectedDate
+                    val requestedEnd = requestedStart + (durationMins * 60 * 1000)
+
+                    val overlappingAppt = appointments.find { a ->
+                        if (a.id == appt.id) return@find false // ignora el mismo turno
+                        val s = services.find { it.id == a.serviceId }
+                        val dur = s?.durationMinutes ?: 30
+                        val aStart = a.dateTimestamp
+                        val aEnd = aStart + (dur * 60 * 1000)
+                        requestedStart < aEnd && requestedEnd > aStart
+                    }
+
+                    if (overlappingAppt != null) {
+                        val nextAppt = appointments.filter { it.id != appt.id && it.dateTimestamp >= requestedStart }
+                                                      .minByOrNull { it.dateTimestamp }
+                        if (nextAppt != null && nextAppt.dateTimestamp > requestedStart) {
+                            val availableMins = (nextAppt.dateTimestamp - requestedStart) / (60 * 1000)
+                            snackbarMessage = "Solamente tienes $availableMins min disponibles antes del próximo turno. (El servicio dura $durationMins min)"
+                        } else {
+                            snackbarMessage = "El servicio se superpone con otro turno programado."
+                        }
+                        return@Button
+                    }
+
+                    val todayMidnight = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                    }.timeInMillis
+
+                    val duplicate = if (selectedClientId != null) {
+                        appointments.find { it.id != appt.id && it.clientId == selectedClientId && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
+                    } else null
+
+                    if (duplicate != null) {
+                        duplicateApptWarning = duplicate
+                    } else {
+                        updateAppointment()
+                    }
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text("Actualizar Turno")
                 }
-                if (showSnackbar) {
+
+                if (duplicateApptWarning != null) {
+                    AlertDialog(
+                        onDismissRequest = { duplicateApptWarning = null },
+                        title = { Text("Atención") },
+                        text = {
+                            val apptDate = java.text.SimpleDateFormat("dd/MM/yyyy", Locale("es", "ES")).format(Date(duplicateApptWarning!!.dateTimestamp))
+                            val apptTime = java.text.SimpleDateFormat("HH:mm", Locale("es", "ES")).format(Date(duplicateApptWarning!!.dateTimestamp))
+                            Text("Este cliente ya tiene un turno registrado el día $apptDate a las $apptTime. ¿Desea continuar?")
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                duplicateApptWarning = null
+                                updateAppointment()
+                            }) { Text("OK") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { duplicateApptWarning = null }) { Text("Cancelar") }
+                        }
+                    )
+                }
+
+                if (snackbarMessage != null) {
                     Snackbar(
                         modifier = Modifier.padding(top = 8.dp),
                         action = {
-                            TextButton(onClick = { showSnackbar = false }) {
+                            TextButton(onClick = { snackbarMessage = null }) {
                                 Text("OK")
                             }
                         }
                     ) {
-                        Text("Error: El horario seleccionado ya ha pasado.")
+                        Text(snackbarMessage!!)
                     }
                 }
             }

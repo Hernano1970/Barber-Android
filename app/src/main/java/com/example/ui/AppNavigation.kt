@@ -15,7 +15,7 @@ import androidx.navigation.compose.rememberNavController
 
 sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Dashboard : Screen("dashboard", "Dashboard", Icons.Filled.Dashboard)
-    object Billing : Screen("billing", "Facturación", Icons.Filled.AttachMoney)
+    object Billing : Screen("billing", "Pagos", Icons.Filled.AttachMoney)
     object Clients : Screen("clients", "Clientes", Icons.Filled.People)
     object Services : Screen("services", "Servicios", Icons.Filled.ContentCut) // Fallback to contentcut or similar
     object Agenda : Screen("agenda", "Agenda", Icons.Filled.CalendarMonth)
@@ -125,6 +125,16 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             // Add Service
             composable("add_service") {
                 AddServiceScreen(viewModel, navController)
+            }
+            // Edit Service
+            composable(
+                route = "edit_service/{id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { 
+                    type = androidx.navigation.NavType.IntType
+                })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getInt("id") ?: -1
+                EditServiceScreen(viewModel, navController, id)
             }
             // Add Appointment
             composable(

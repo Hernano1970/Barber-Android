@@ -159,7 +159,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
             }
 
             // Table Header
-            val columnWidths = listOf(100.dp, 120.dp, 100.dp, 100.dp, 90.dp, 130.dp, 90.dp, 50.dp)
+            val columnWidths = listOf(100.dp, 120.dp, 100.dp, 100.dp, 90.dp, 130.dp, 90.dp, 100.dp)
             val headerScrollState = rememberScrollState()
             
             Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -169,7 +169,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                     Text("SERVICIO", modifier = Modifier.width(columnWidths[2]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("MÉTODO", modifier = Modifier.width(columnWidths[3]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("ESTADO", modifier = Modifier.width(columnWidths[4]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("FECHA DE TURNO", modifier = Modifier.width(columnWidths[5]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("FECHA T.", modifier = Modifier.width(columnWidths[5]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("MONTO", modifier = Modifier.width(columnWidths[6]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("", modifier = Modifier.width(columnWidths[7]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
@@ -222,11 +222,27 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                         Text(turnFormatted, modifier = Modifier.width(columnWidths[5]), fontSize = 13.sp)
                         Text("$${"%.2f".format(price)}", modifier = Modifier.width(columnWidths[6]), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         
-                        IconButton(
-                            onClick = { deleteConfirmAppt = appt },
-                            modifier = Modifier.width(columnWidths[7]).size(24.dp)
+                        Row(
+                            modifier = Modifier.width(columnWidths[7]),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            if (appt.isPaid) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.updateAppointment(appt.copy(isPaid = false, paymentMethod = ""))
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Filled.Refresh, contentDescription = "Marcar Pendiente", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            IconButton(
+                                onClick = { deleteConfirmAppt = appt },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                     HorizontalDivider()

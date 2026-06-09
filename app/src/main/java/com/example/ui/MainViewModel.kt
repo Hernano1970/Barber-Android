@@ -95,6 +95,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateService(service: Service) {
+        viewModelScope.launch {
+            repository.insertService(service)
+        }
+    }
+
+    fun deleteService(service: Service) {
+        viewModelScope.launch {
+            repository.deleteService(service)
+        }
+    }
+
     fun addAppointment(clientId: Int, serviceId: Int, date: Long, observations: String) {
         viewModelScope.launch {
             repository.insertAppointment(

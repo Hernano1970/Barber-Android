@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -294,7 +295,17 @@ fun ServicesScreen(viewModel: MainViewModel, navController: NavController) {
                 ListItem(
                     headlineContent = { Text(service.name, fontWeight = FontWeight.Bold) },
                     supportingContent = { Text("Duración: ${service.durationMinutes} min - ${service.description}") },
-                    trailingContent = { Text("$${service.price}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) },
+                    trailingContent = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("$${service.price}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = { navController.navigate("edit_service/${service.id}") }) {
+                                Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
+                            }
+                            IconButton(onClick = { viewModel.deleteService(service) }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    },
                     leadingContent = {
                         Icon(Icons.Filled.ContentCut, contentDescription = null)
                     }
@@ -324,6 +335,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale("es", "ES"))
 
     var showOptionsForAppt by remember { mutableStateOf<com.example.data.Appointment?>(null) }
+    var showNoServicesDialog by remember { mutableStateOf(false) }
 
     val dayOfWeek = selectedDate.get(Calendar.DAY_OF_WEEK)
     val workingHours = viewModel.appSettings.getWorkingHours(dayOfWeek)
@@ -336,23 +348,13 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
     for (h in startHour..endHour) {
         slots.add(h to 0)
         if (h != endHour) {
+            slots.add(h to 15)
             slots.add(h to 30)
+            slots.add(h to 45)
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            val isPastDay = (selectedDate.clone() as Calendar).apply { 
-                add(Calendar.DAY_OF_MONTH, 1) 
-            }.timeInMillis <= System.currentTimeMillis()
-
-            if (!isPastDay) {
-                FloatingActionButton(onClick = { navController.navigate("add_appointment") }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add Appointment")
-                }
-            }
-        }
-    ) { padding ->
+    Scaffold { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             // Date Selector
             Row(
@@ -409,7 +411,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                         slotStart.set(Calendar.MINUTE, slot.second)
                         
                         val slotEnd = slotStart.clone() as Calendar
-                        slotEnd.add(Calendar.MINUTE, 30) // Check if the 30-min slot is occupied
+                        slotEnd.add(Calendar.MINUTE, 15) // Check if the 15-min slot is occupied
 
                         val isPastSlot = slotStart.timeInMillis < Calendar.getInstance().timeInMillis
 
@@ -427,7 +429,11 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(enabled = apptsInSlot.isEmpty() && !isPastSlot) { 
-                                    navController.navigate("add_appointment?timestamp=${slotStart.timeInMillis}")
+                                    if (services.isEmpty()) {
+                                        showNoServicesDialog = true
+                                    } else {
+                                        navController.navigate("add_appointment?timestamp=${slotStart.timeInMillis}")
+                                    }
                                 }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.Top
@@ -461,26 +467,38 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                         val service = services.find { it.id == appt.serviceId }
                                         val isOngoing = appt.dateTimestamp < slotStart.timeInMillis
                                         
+                                        val pastelColors = listOf(
+                                            androidx.compose.ui.graphics.Color(0xFFE3F2FD), 
+                                            androidx.compose.ui.graphics.Color(0xFFF3E5F5), 
+                                            androidx.compose.ui.graphics.Color(0xFFE8F5E9), 
+                                            androidx.compose.ui.graphics.Color(0xFFFFF3E0), 
+                                            androidx.compose.ui.graphics.Color(0xFFFFEBEE), 
+                                            androidx.compose.ui.graphics.Color(0xFFE0F7FA), 
+                                            androidx.compose.ui.graphics.Color(0xFFFCE4EC)
+                                        )
+                                        val apptColor = pastelColors[appt.id % pastelColors.size]
+                                        
                                         Card(
                                             modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).clickable { showOptionsForAppt = appt },
                                             colors = CardDefaults.cardColors(
-                                                containerColor = if (isOngoing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) 
-                                                                 else MaterialTheme.colorScheme.primaryContainer
+                                                containerColor = if (isOngoing) apptColor.copy(alpha = 0.6f) 
+                                                                 else apptColor
                                             )
                                         ) {
                                             Column(modifier = Modifier.padding(12.dp)) {
+                                                val textColor = androidx.compose.ui.graphics.Color(0xFF1E1E1E)
                                                 if (isOngoing) {
-                                                    Text("Continuación: ${client?.fullName ?: "Desconocido"} (${service?.name ?: "Servicio"})", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                    Text("Continuación: ${client?.fullName ?: "Desconocido"} (${service?.name ?: "Servicio"})", style = MaterialTheme.typography.bodyMedium, color = textColor)
                                                 } else {
-                                                    Text("${client?.fullName ?: "Desconocido"} - ${service?.name ?: "Servicio"} (${service?.durationMinutes ?: 0} min)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                                    Text(timeFormat.format(java.util.Date(appt.dateTimestamp)) + " • " + appt.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                    Text("${client?.fullName ?: "Desconocido"} - ${service?.name ?: "Servicio"} (${service?.durationMinutes ?: 0} min)", fontWeight = FontWeight.Bold, color = textColor)
+                                                    Text(timeFormat.format(java.util.Date(appt.dateTimestamp)) + " • " + appt.status, style = MaterialTheme.typography.bodySmall, color = textColor)
                                                     if (appt.observations.isNotBlank()) {
                                                         Spacer(modifier = Modifier.height(4.dp))
-                                                        Text("Observaciones/Agenda: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                        Text("Observaciones/Agenda: ${appt.observations}", style = MaterialTheme.typography.bodySmall, color = textColor.copy(alpha = 0.8f))
                                                     }
                                                     if (!client?.observations.isNullOrBlank()) {
                                                         Spacer(modifier = Modifier.height(4.dp))
-                                                        Text("Observaciones/Cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                                        Text("Observaciones/Cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = textColor.copy(alpha = 0.8f))
                                                     }
                                                 }
                                             }
@@ -504,24 +522,16 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                 title = { Text("Gestionar Turno") },
                 text = { Text("¿Qué deseas hacer con el turno de ${client?.fullName ?: "Desconocido"}?") },
                 confirmButton = {
-                    TextButton(onClick = {
-                        showOptionsForAppt = null
-                        navController.navigate("edit_appointment/${appt.id}")
-                    }) {
-                        Text("Editar", color = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                dismissButton = {
-                    Row {
-                        TextButton(onClick = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
                             viewModel.deleteAppointment(appt)
                             showOptionsForAppt = null
                         }) {
-                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
                         }
                         
                         if (client != null && client.phone.isNotBlank()) {
-                            TextButton(onClick = {
+                            IconButton(onClick = {
                                 val template = viewModel.appSettings.whatsappMessageTemplate
                                 val dateStr = dateFormat.format(Date(appt.dateTimestamp))
                                 val timeStr = timeFormat.format(Date(appt.dateTimestamp))
@@ -536,13 +546,36 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                 sendWhatsAppMessage(context, client.phone, message)
                                 showOptionsForAppt = null
                             }) {
-                                Text("WhatsApp", color = androidx.compose.ui.graphics.Color(0xFF25D366))
+                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
                             }
+                        }
+
+                        IconButton(onClick = {
+                            showOptionsForAppt = null
+                            navController.navigate("edit_appointment/${appt.id}")
+                        }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
                         }
 
                         TextButton(onClick = { showOptionsForAppt = null }) {
                             Text("Cancelar")
                         }
+                    }
+                }
+            )
+        }
+
+        if (showNoServicesDialog) {
+            AlertDialog(
+                onDismissRequest = { showNoServicesDialog = false },
+                title = { Text("Atención") },
+                text = { Text("Tiene que cargar un Servicio.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNoServicesDialog = false
+                        navController.navigate("services") // Redirect to services screen directly
+                    }) {
+                        Text("OK")
                     }
                 }
             )
