@@ -9,7 +9,8 @@ data class Client(
     val fullName: String,
     val phone: String,
     val observations: String,
-    val registrationDate: Long = System.currentTimeMillis()
+    val registrationDate: Long = System.currentTimeMillis(),
+    val isPermanent: Boolean = true
 )
 
 @Entity(tableName = "services")

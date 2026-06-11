@@ -112,6 +112,10 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             composable("add_client") {
                 AddClientScreen(viewModel, navController)
             }
+            // Import Contacts
+            composable("import_contacts") {
+                ImportContactsScreen(viewModel, navController)
+            }
             // Edit Client
             composable(
                 route = "edit_client/{id}",

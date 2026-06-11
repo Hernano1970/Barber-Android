@@ -51,7 +51,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
             Spacer(modifier = Modifier.width(16.dp))
             StatCard(
                 title = "Total Clientes",
-                value = totalClients.toString(),
+                value = clients.count { it.isPermanent }.toString(),
                 icon = Icons.Filled.People,
                 modifier = Modifier.weight(1f)
             )
@@ -192,6 +192,7 @@ fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.ve
 fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
     val clients by viewModel.clients.collectAsState()
     var showOptionsForClient by remember { mutableStateOf<com.example.data.Client?>(null) }
+    var clientToDelete by remember { mutableStateOf<com.example.data.Client?>(null) }
 
     Scaffold(
         topBar = {
@@ -200,6 +201,11 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { navController.navigate("import_contacts") }) {
+                        Text("Importar Contacto", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -210,8 +216,9 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
             }
         }
     ) { padding ->
+        val permanentClients = clients.filter { it.isPermanent }
         LazyColumn(contentPadding = padding) {
-            items(clients) { client ->
+            items(permanentClients) { client ->
                 ListItem(
                     headlineContent = { Text(client.fullName, fontWeight = FontWeight.Bold) },
                     supportingContent = {
@@ -253,7 +260,7 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
                 dismissButton = {
                     Row {
                         TextButton(onClick = {
-                            viewModel.deleteClient(client)
+                            clientToDelete = client
                             showOptionsForClient = null
                         }) {
                             Text("Eliminar", color = MaterialTheme.colorScheme.error)
@@ -261,6 +268,27 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
                         TextButton(onClick = { showOptionsForClient = null }) {
                             Text("Cancelar")
                         }
+                    }
+                }
+            )
+        }
+
+        if (clientToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { clientToDelete = null },
+                title = { Text("Confirmar Eliminación") },
+                text = { Text("¿Está seguro que desea eliminar este cliente?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteClient(clientToDelete!!)
+                        clientToDelete = null
+                    }) {
+                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { clientToDelete = null }) {
+                        Text("Cancelar")
                     }
                 }
             )
@@ -339,8 +367,29 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
 
     val dayOfWeek = selectedDate.get(Calendar.DAY_OF_WEEK)
     val workingHours = viewModel.appSettings.getWorkingHours(dayOfWeek)
-    val absenceDay = viewModel.appSettings.getAbsenceForDate(selectedDate.timeInMillis)
+    val absenceDay = viewModel.appSettings.getFullDayAbsenceForDate(selectedDate.timeInMillis)
     val isAbsence = absenceDay != null
+
+    val partialAbsences = viewModel.appSettings.getAbsencesForDate(selectedDate.timeInMillis).filter { it.isPartial }
+    val blockedBlocks = partialAbsences.mapNotNull { partial ->
+        try {
+            val startParts = partial.startTime.split(":")
+            val endParts = partial.endTime.split(":")
+            if (startParts.size == 2 && endParts.size == 2) {
+                val startCal = selectedDate.clone() as Calendar
+                startCal.set(Calendar.HOUR_OF_DAY, startParts[0].toInt())
+                startCal.set(Calendar.MINUTE, startParts[1].toInt())
+                startCal.set(Calendar.SECOND, 0)
+                
+                val endCal = selectedDate.clone() as Calendar
+                endCal.set(Calendar.HOUR_OF_DAY, endParts[0].toInt())
+                endCal.set(Calendar.MINUTE, endParts[1].toInt())
+                endCal.set(Calendar.SECOND, 0)
+                
+                Triple(startCal.timeInMillis, endCal.timeInMillis, partial)
+            } else null
+        } catch (e: Exception) { null }
+    }
 
     val startHour = workingHours?.first ?: 8
     val endHour = workingHours?.second ?: 20
@@ -404,7 +453,35 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                 }
             } else {
                 // Time Slots
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                
+                LaunchedEffect(selectedDate, slots) {
+                    val today = Calendar.getInstance()
+                    val isToday = selectedDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                                  selectedDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+                    
+                    if (isToday) {
+                        val currentTime = System.currentTimeMillis()
+                        val targetIndex = slots.indexOfFirst { slot ->
+                            val slotStart = selectedDate.clone() as Calendar
+                            slotStart.set(Calendar.HOUR_OF_DAY, slot.first)
+                            slotStart.set(Calendar.MINUTE, slot.second)
+                            slotStart.timeInMillis >= currentTime
+                        }
+                        
+                        if (targetIndex != -1) {
+                            listState.scrollToItem(targetIndex)
+                        } else if (slots.isNotEmpty()) {
+                            listState.scrollToItem(slots.size - 1)
+                        }
+                    } else {
+                        if (slots.isNotEmpty()) {
+                            listState.scrollToItem(0)
+                        }
+                    }
+                }
+
+                LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
                     items(slots) { slot ->
                         val slotStart = selectedDate.clone() as Calendar
                         slotStart.set(Calendar.HOUR_OF_DAY, slot.first)
@@ -414,6 +491,10 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                         slotEnd.add(Calendar.MINUTE, 15) // Check if the 15-min slot is occupied
 
                         val isPastSlot = slotStart.timeInMillis < Calendar.getInstance().timeInMillis
+
+                        val overlappingBlocked = blockedBlocks.find { block -> 
+                            block.first < slotEnd.timeInMillis && block.second > slotStart.timeInMillis 
+                        }
 
                         // An appointment occupies this slot if its start time + duration > slotStart
                         // AND its start time < slotEnd
@@ -428,7 +509,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = apptsInSlot.isEmpty() && !isPastSlot) { 
+                                .clickable(enabled = apptsInSlot.isEmpty() && !isPastSlot && overlappingBlocked == null) { 
                                     if (services.isEmpty()) {
                                         showNoServicesDialog = true
                                     } else {
@@ -446,7 +527,20 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             )
                             
                             Column(modifier = Modifier.weight(1f)) {
-                                if (apptsInSlot.isEmpty()) {
+                                if (overlappingBlocked != null) {
+                                    val partial = overlappingBlocked.third
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp).fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                                            Text("Ausencia Parcial: ${partial.type}", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                            if (partial.note.isNotBlank()) {
+                                                Text(partial.note, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                            }
+                                        }
+                                    }
+                                } else if (apptsInSlot.isEmpty()) {
                                     Card(
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
                                         colors = CardDefaults.cardColors(

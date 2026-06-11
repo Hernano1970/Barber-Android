@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -384,6 +385,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
     var casualClientName by remember { mutableStateOf("") }
     var casualClientPhone by remember { mutableStateOf("") }
     var casualClientObs by remember { mutableStateOf("") }
+    var saveAsPermanent by remember { mutableStateOf(true) }
     
     var clientExpanded by remember { mutableStateOf(false) }
     var serviceExpanded by remember { mutableStateOf(false) }
@@ -460,7 +462,8 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                             clientExpanded = false
                         }
                     )
-                    clients.forEach { client ->
+                    val permClients = clients.filter { it.isPermanent }
+                    permClients.forEach { client ->
                         DropdownMenuItem(
                             text = { Text(client.fullName) },
                             onClick = {
@@ -496,6 +499,10 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3
                 )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { saveAsPermanent = !saveAsPermanent }.padding(vertical = 8.dp)) {
+                    Checkbox(checked = saveAsPermanent, onCheckedChange = { saveAsPermanent = it })
+                    Text("Guardar como cliente permanente en la agenda")
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -564,6 +571,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             Spacer(modifier = Modifier.height(24.dp))
             var snackbarMessage by remember { mutableStateOf<String?>(null) }
             var duplicateApptWarning by remember { mutableStateOf<com.example.data.Appointment?>(null) }
+            var duplicateClientWarning by remember { mutableStateOf(false) }
 
             val saveAppointment = {
                 if (isCasualClient && casualClientName.isNotBlank() && selectedServiceId != null) {
@@ -573,7 +581,8 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                         clientObs = casualClientObs,
                         serviceId = selectedServiceId!!,
                         date = selectedDate,
-                        apptObs = observations
+                        apptObs = observations,
+                        isPermanent = saveAsPermanent
                     )
                     navController.popBackStack()
                 } else if (selectedClientId != null && selectedServiceId != null) {
@@ -631,11 +640,24 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
 
                 if (duplicate != null) {
                     duplicateApptWarning = duplicate
+                } else if (isCasualClient && saveAsPermanent && casualClientPhone.isNotBlank() && clients.any { it.phone == casualClientPhone && it.isPermanent }) {
+                    duplicateClientWarning = true
                 } else {
                     saveAppointment()
                 }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Confirmar Turno")
+            }
+
+            if (duplicateClientWarning) {
+                AlertDialog(
+                    onDismissRequest = { duplicateClientWarning = false },
+                    title = { Text("Atención") },
+                    text = { Text("Este cliente ya se encuentra registrado (mismo número de teléfono).") },
+                    confirmButton = {
+                        TextButton(onClick = { duplicateClientWarning = false }) { Text("OK") }
+                    }
+                )
             }
 
             if (duplicateApptWarning != null) {
@@ -761,15 +783,16 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                         expanded = clientExpanded,
                         onDismissRequest = { clientExpanded = false }
                     ) {
-                        clients.forEach { client ->
-                            DropdownMenuItem(
-                                text = { Text(client.fullName) },
-                                onClick = {
-                                    selectedClientId = client.id
-                                    clientExpanded = false
-                                }
-                            )
-                        }
+                    val permClients = clients.filter { it.isPermanent }
+                    permClients.forEach { client ->
+                        DropdownMenuItem(
+                            text = { Text(client.fullName) },
+                            onClick = {
+                                selectedClientId = client.id
+                                clientExpanded = false
+                            }
+                        )
+                    }
                     }
                 }
 

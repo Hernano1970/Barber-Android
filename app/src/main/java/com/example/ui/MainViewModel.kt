@@ -9,12 +9,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.flow.map
+import java.text.Collator
+import java.util.Locale
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val repository = Repository(database)
     val appSettings = AppSettings(application.applicationContext)
 
-    val clients: StateFlow<List<Client>> = repository.allClients.stateIn(
+    private val collator = Collator.getInstance(Locale("es", "ES")).apply {
+        strength = Collator.PRIMARY
+    }
+
+    val clients: StateFlow<List<Client>> = repository.allClients.map { list ->
+        list.sortedWith { c1, c2 -> collator.compare(c1.fullName, c2.fullName) }
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
@@ -121,9 +131,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addAppointmentWithNewClient(clientName: String, clientPhone: String, clientObs: String, serviceId: Int, date: Long, apptObs: String) {
+    fun addAppointmentWithNewClient(clientName: String, clientPhone: String, clientObs: String, serviceId: Int, date: Long, apptObs: String, isPermanent: Boolean = true) {
         viewModelScope.launch {
-            val clientId = repository.insertClient(Client(fullName = clientName, phone = clientPhone, observations = clientObs)).toInt()
+            val clientId = repository.insertClient(Client(fullName = clientName, phone = clientPhone, observations = clientObs, isPermanent = isPermanent)).toInt()
             repository.insertAppointment(
                 Appointment(
                     clientId = clientId,

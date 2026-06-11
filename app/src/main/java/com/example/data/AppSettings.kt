@@ -13,7 +13,10 @@ data class Absence(
     val start: Long,
     val end: Long,
     val type: String,
-    val note: String
+    val note: String,
+    val isPartial: Boolean = false,
+    val startTime: String = "",
+    val endTime: String = ""
 )
 
 class AppSettings(context: Context) {
@@ -32,7 +35,10 @@ class AppSettings(context: Context) {
                         start = obj.getLong("start"),
                         end = obj.getLong("end"),
                         type = obj.getString("type"),
-                        note = obj.getString("note")
+                        note = obj.getString("note"),
+                        isPartial = obj.optBoolean("isPartial", false),
+                        startTime = obj.optString("startTime", ""),
+                        endTime = obj.optString("endTime", "")
                     ))
                 }
             } catch (e: Exception) { }
@@ -47,13 +53,16 @@ class AppSettings(context: Context) {
                 obj.put("end", a.end)
                 obj.put("type", a.type)
                 obj.put("note", a.note)
+                obj.put("isPartial", a.isPartial)
+                obj.put("startTime", a.startTime)
+                obj.put("endTime", a.endTime)
                 array.put(obj)
             }
             prefs.edit().putString("absencesList", array.toString()).apply()
         }
 
-    fun getAbsenceForDate(dateTimestamp: Long): Absence? {
-        return absencesList.find { absence -> 
+    fun getAbsencesForDate(dateTimestamp: Long): List<Absence> {
+        return absencesList.filter { absence -> 
             val startCal = Calendar.getInstance().apply {
                 timeInMillis = absence.start
                 set(Calendar.HOUR_OF_DAY, 0)
@@ -72,8 +81,8 @@ class AppSettings(context: Context) {
         }
     }
 
-    fun isAbsenceDate(dateTimestamp: Long): Boolean {
-        return getAbsenceForDate(dateTimestamp) != null
+    fun getFullDayAbsenceForDate(dateTimestamp: Long): Absence? {
+        return getAbsencesForDate(dateTimestamp).firstOrNull { !it.isPartial }
     }
 
     var businessName: String
