@@ -42,8 +42,8 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
             )
             HorizontalDivider()
             ListItem(
-                headlineContent = { Text("Vacaciones y Ausencias") },
-                supportingContent = { Text("Feriados y días libres") },
+                headlineContent = { Text("Ausencias Extensas / Parciales") },
+                supportingContent = { Text("Bloquear agenda por período u horario") },
                 leadingContent = { Icon(Icons.Filled.EventBusy, contentDescription = null) },
                 modifier = Modifier.clickable { navController.navigate("settings_vacations") }
             )
@@ -53,6 +53,20 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
                 supportingContent = { Text("Recordatorios de turnos") },
                 leadingContent = { Icon(Icons.Filled.Chat, contentDescription = null) }, // Add Chat icon fallback
                 modifier = Modifier.clickable { navController.navigate("settings_whatsapp") }
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Notificaciones y Recordatorios") },
+                supportingContent = { Text("Alertas de turnos, inicios de jornada y ausencias") },
+                leadingContent = { Icon(Icons.Filled.Notifications, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate("settings_notifications") }
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Respaldo y Restauración") },
+                supportingContent = { Text("Crear copias de seguridad de la base de datos") },
+                leadingContent = { Icon(Icons.Filled.Backup, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate("settings_backup") }
             )
             HorizontalDivider()
         }
@@ -155,7 +169,7 @@ fun WorkingHoursScreen(viewModel: MainViewModel, navController: NavController) {
     val days = listOf(
         Pair(1, "Lunes"),
         Pair(2, "Martes"),
-        Pair(3, "Miércoles"),
+        Pair(3, "Mier."),
         Pair(4, "Jueves"),
         Pair(5, "Viernes"),
         Pair(6, "Sábado"),
@@ -264,14 +278,19 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
     var startDate by remember { mutableStateOf<Long?>(null) }
     var endDate by remember { mutableStateOf<Long?>(null) }
     var note by remember { mutableStateOf("") }
+    var editingAbsenceId by remember { mutableStateOf<String?>(null) }
     
     var isPartial by remember { mutableStateOf(false) }
+    var bloqueoTypeExpanded by remember { mutableStateOf(false) }
+    
     var startTime by remember { mutableStateOf("09:00") }
     var endTime by remember { mutableStateOf("12:00") }
     
     var typeExpanded by remember { mutableStateOf(false) }
     var selectedType by remember { mutableStateOf("Vacaciones") }
-    val types = listOf("Vacaciones", "Feriado", "Franco", "Ausencia Parcial")
+    var customType by remember { mutableStateOf("") }
+    val typesExtensa = listOf("Vacaciones", "Feriado", "Franco", "Personalizado")
+    val typesParcial = listOf("Ausencia Parcial", "Personalizado")
 
     val formatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
     val appointments by viewModel.allAppointments.collectAsState()
@@ -297,7 +316,7 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Vacaciones y Ausencias") },
+                title = { Text("Ausencias Extensas / Parciales") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -320,6 +339,40 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                        // Tipo de Ausencia
+                        Text("Tipo de Ausencia", style = MaterialTheme.typography.labelMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = bloqueoTypeExpanded,
+                            onExpandedChange = { bloqueoTypeExpanded = !bloqueoTypeExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = if (isPartial) "Ausencia Parcial" else "Ausencia Extensa",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bloqueoTypeExpanded) },
+                                modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryEditable, enabled = true).fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = bloqueoTypeExpanded,
+                                onDismissRequest = { bloqueoTypeExpanded = false }
+                            ) {
+                                listOf("Ausencia Extensa", "Ausencia Parcial").forEach { t ->
+                                    DropdownMenuItem(
+                                        text = { Text(t) },
+                                        onClick = {
+                                            isPartial = t == "Ausencia Parcial"
+                                            selectedType = if (isPartial) "Ausencia Parcial" else "Vacaciones"
+                                            if (isPartial && startDate != null) endDate = startDate
+                                            bloqueoTypeExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Desde
                             Column(modifier = Modifier.weight(1f)) {
@@ -361,35 +414,28 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                             }
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            Checkbox(checked = isPartial, onCheckedChange = { 
-                                isPartial = it
-                                if (it) {
-                                    selectedType = "Ausencia Parcial"
-                                    if (startDate != null) endDate = startDate
-                                }
-                            })
-                            Text("Ausencia Parcial (por horario)")
-                        }
-
                         if (isPartial) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Hora Desde:")
-                                Spacer(modifier = Modifier.width(8.dp))
-                                TimeChip(time = startTime, isEnabled = true) { startTime = it }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text("Hora Hasta:")
-                                Spacer(modifier = Modifier.width(8.dp))
-                                TimeChip(time = endTime, isEnabled = true) { endTime = it }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Hora Desde:", style = MaterialTheme.typography.labelMedium)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    TimeChip(time = startTime, isEnabled = true) { startTime = it }
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Hora Hasta:", style = MaterialTheme.typography.labelMedium)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    TimeChip(time = endTime, isEnabled = true) { endTime = it }
+                                }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Tipo
-                        Text("Tipo", style = MaterialTheme.typography.labelMedium)
+                        // Motivo
+                        Text("Motivo", style = MaterialTheme.typography.labelMedium)
                         Spacer(modifier = Modifier.height(4.dp))
+                        val currentTypes = if (isPartial) typesParcial else typesExtensa
                         ExposedDropdownMenuBox(
                             expanded = typeExpanded,
                             onExpandedChange = { typeExpanded = !typeExpanded }
@@ -405,7 +451,7 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                                 expanded = typeExpanded,
                                 onDismissRequest = { typeExpanded = false }
                             ) {
-                                types.forEach { t ->
+                                currentTypes.forEach { t ->
                                     DropdownMenuItem(
                                         text = { Text(t) },
                                         onClick = {
@@ -415,6 +461,16 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                                     )
                                 }
                             }
+                        }
+
+                        if (selectedType == "Personalizado") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = customType,
+                                onValueChange = { customType = it },
+                                placeholder = { Text("Ej: Congreso") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -431,101 +487,151 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = {
-                                if (startDate != null && endDate != null && startDate!! <= endDate!!) {
-                                    var valid = true
-                                    if (isPartial) {
-                                        val s = startTime.replace(":", "").toIntOrNull() ?: 0
-                                        val e = endTime.replace(":", "").toIntOrNull() ?: 0
-                                        if (s >= e) {
-                                            valid = false
-                                            android.widget.Toast.makeText(context, "La hora de inicio debe ser menor a la de fin", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                    
-                                    if (valid && isPartial) {
-                                        // Check overlapping absences on the same day
-                                        val existingPartials = absences.filter { it.isPartial && it.start == startDate }
-                                        val sNew = startTime.replace(":", "").toIntOrNull() ?: 0
-                                        val eNew = endTime.replace(":", "").toIntOrNull() ?: 0
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            if (editingAbsenceId != null) {
+                                TextButton(onClick = {
+                                    editingAbsenceId = null
+                                    startDate = null
+                                    endDate = null
+                                    note = ""
+                                }) {
+                                    Text("Cancelar")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Button(
+                                onClick = {
+                                    if (startDate != null && endDate != null && startDate!! <= endDate!!) {
+                                        var valid = true
                                         
-                                        for (ext in existingPartials) {
-                                            val sExt = ext.startTime.replace(":", "").toIntOrNull() ?: 0
-                                            val eExt = ext.endTime.replace(":", "").toIntOrNull() ?: 0
-                                            
-                                            // Overlap condition: start1 < end2 && end1 > start2
-                                            if (sNew < eExt && eNew > sExt) {
+                                        val finalType = if (selectedType == "Personalizado" && customType.isNotBlank()) customType else selectedType
+                                        
+                                        // Validations
+                                        val targetStartCal = Calendar.getInstance().apply { timeInMillis = startDate!! }
+                                        targetStartCal.set(Calendar.HOUR_OF_DAY, 0)
+                                        targetStartCal.set(Calendar.MINUTE, 0)
+                                        targetStartCal.set(Calendar.SECOND, 0)
+                                        targetStartCal.set(Calendar.MILLISECOND, 0)
+                                        
+                                        val targetEndCal = Calendar.getInstance().apply { timeInMillis = endDate!! }
+                                        targetEndCal.set(Calendar.HOUR_OF_DAY, 23)
+                                        targetEndCal.set(Calendar.MINUTE, 59)
+                                        targetEndCal.set(Calendar.SECOND, 59)
+                                        targetEndCal.set(Calendar.MILLISECOND, 999)
+
+                                        if (isPartial) {
+                                            val s = startTime.replace(":", "").toIntOrNull() ?: 0
+                                            val e = endTime.replace(":", "").toIntOrNull() ?: 0
+                                            if (s >= e) {
                                                 valid = false
-                                                android.widget.Toast.makeText(context, "Ya existe una ausencia en este horario", android.widget.Toast.LENGTH_SHORT).show()
-                                                break
+                                                android.widget.Toast.makeText(context, "La hora de inicio debe ser menor a la de fin", android.widget.Toast.LENGTH_SHORT).show()
                                             }
-                                        }
-                                    }
-                                    
-                                    if (valid) {
-                                        val newAbsence = com.example.data.Absence(
-                                            start = startDate!!,
-                                            end = endDate!!,
-                                            type = selectedType,
-                                            note = note,
-                                            isPartial = isPartial,
-                                            startTime = if (isPartial) startTime else "",
-                                            endTime = if (isPartial) endTime else ""
-                                        )
-                                        
-                                        // check overlapping appointments
-                                        val startCal = Calendar.getInstance().apply { timeInMillis = startDate!! }
-                                        val endCal = Calendar.getInstance().apply { timeInMillis = endDate!! }
-                                        startCal.set(Calendar.HOUR_OF_DAY, 0)
-                                        startCal.set(Calendar.MINUTE, 0)
-                                        startCal.set(Calendar.SECOND, 0)
-                                        
-                                        endCal.set(Calendar.HOUR_OF_DAY, 23)
-                                        endCal.set(Calendar.MINUTE, 59)
-                                        endCal.set(Calendar.SECOND, 59)
-                                        
-                                        var count = 0
-                                        if (!isPartial) {
-                                            count = appointments.count { it.status == "Agendado" && it.dateTimestamp in startCal.timeInMillis..endCal.timeInMillis }
+
+                                            if (valid) {
+                                                // Caso 1: Extensa exists for this date?
+                                                val hasExtensa = absences.any { it.id != editingAbsenceId && !it.isPartial && it.start <= targetEndCal.timeInMillis && it.end >= targetStartCal.timeInMillis }
+                                                if (hasExtensa) {
+                                                    valid = false
+                                                    android.widget.Toast.makeText(context, "Ya existe una Ausencia Extensa para la fecha seleccionada. Revise las ausencias registradas antes de continuar.", android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                            
+                                            if (valid) {
+                                                // Caso 3: Partial overlapping
+                                                val existingPartials = absences.filter { it.id != editingAbsenceId && it.isPartial && it.start == startDate }
+                                                val sNew = startTime.replace(":", "").toIntOrNull() ?: 0
+                                                val eNew = endTime.replace(":", "").toIntOrNull() ?: 0
+                                                
+                                                for (ext in existingPartials) {
+                                                    val sExt = ext.startTime.replace(":", "").toIntOrNull() ?: 0
+                                                    val eExt = ext.endTime.replace(":", "").toIntOrNull() ?: 0
+                                                    
+                                                    if (sNew < eExt && eNew > sExt) {
+                                                        valid = false
+                                                        android.widget.Toast.makeText(context, "Ya existe una Ausencia Parcial registrada para ese horario.", android.widget.Toast.LENGTH_LONG).show()
+                                                        break
+                                                    }
+                                                }
+                                            }
                                         } else {
-                                            val partsS = startTime.split(":")
-                                            val partsE = endTime.split(":")
-                                            if (partsS.size == 2 && partsE.size == 2) {
-                                                val absStart = startCal.clone() as Calendar
-                                                absStart.set(Calendar.HOUR_OF_DAY, partsS[0].toInt())
-                                                absStart.set(Calendar.MINUTE, partsS[1].toInt())
-                                                
-                                                val absEnd = startCal.clone() as Calendar
-                                                absEnd.set(Calendar.HOUR_OF_DAY, partsE[0].toInt())
-                                                absEnd.set(Calendar.MINUTE, partsE[1].toInt())
-                                                
-                                                count = appointments.count { 
-                                                    it.status == "Agendado" && it.dateTimestamp >= absStart.timeInMillis && it.dateTimestamp < absEnd.timeInMillis 
+                                            // Extensa validation
+                                            if (valid) {
+                                                // Caso 2: Parcial exists inside this extended period?
+                                                val hasParcial = absences.any { it.id != editingAbsenceId && it.isPartial && it.start in targetStartCal.timeInMillis..targetEndCal.timeInMillis }
+                                                if (hasParcial) {
+                                                    valid = false
+                                                    android.widget.Toast.makeText(context, "Existen Ausencias Parciales registradas dentro del período seleccionado. Revise las ausencias registradas antes de continuar.", android.widget.Toast.LENGTH_LONG).show()
                                                 }
                                             }
                                         }
                                         
-                                        if (count > 0) {
-                                            overlappingCount = count
-                                            showOverlapConfirm = newAbsence
-                                        } else {
-                                            val newList = absences.toMutableList().apply { add(newAbsence) }
-                                            viewModel.appSettings.absencesList = newList
-                                            absences = newList
+                                        if (valid) {
+                                            val newAbsence = com.example.data.Absence(
+                                                start = startDate!!,
+                                                end = endDate!!,
+                                                type = finalType,
+                                                note = note,
+                                                isPartial = isPartial,
+                                                startTime = if (isPartial) startTime else "",
+                                                endTime = if (isPartial) endTime else ""
+                                            )
                                             
-                                            startDate = null
-                                            if (!isPartial) endDate = null
-                                            note = ""
+                                            // check overlapping appointments
+                                            val startCal = Calendar.getInstance().apply { timeInMillis = startDate!! }
+                                            val endCal = Calendar.getInstance().apply { timeInMillis = endDate!! }
+                                            startCal.set(Calendar.HOUR_OF_DAY, 0)
+                                            startCal.set(Calendar.MINUTE, 0)
+                                            startCal.set(Calendar.SECOND, 0)
+                                            
+                                            endCal.set(Calendar.HOUR_OF_DAY, 23)
+                                            endCal.set(Calendar.MINUTE, 59)
+                                            endCal.set(Calendar.SECOND, 59)
+                                            
+                                            var count = 0
+                                            if (!isPartial) {
+                                                count = appointments.count { it.status == "Pendiente" && it.dateTimestamp in startCal.timeInMillis..endCal.timeInMillis }
+                                            } else {
+                                                val partsS = startTime.split(":")
+                                                val partsE = endTime.split(":")
+                                                if (partsS.size == 2 && partsE.size == 2) {
+                                                    val absStart = startCal.clone() as Calendar
+                                                    absStart.set(Calendar.HOUR_OF_DAY, partsS[0].toInt())
+                                                    absStart.set(Calendar.MINUTE, partsS[1].toInt())
+                                                    
+                                                    val absEnd = startCal.clone() as Calendar
+                                                    absEnd.set(Calendar.HOUR_OF_DAY, partsE[0].toInt())
+                                                    absEnd.set(Calendar.MINUTE, partsE[1].toInt())
+                                                    
+                                                    count = appointments.count { 
+                                                        it.status == "Pendiente" && it.dateTimestamp >= absStart.timeInMillis && it.dateTimestamp < absEnd.timeInMillis 
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (count > 0) {
+                                                overlappingCount = count
+                                                showOverlapConfirm = newAbsence.copy(id = editingAbsenceId ?: java.util.UUID.randomUUID().toString())
+                                            } else {
+                                                val finalAbsence = newAbsence.copy(id = editingAbsenceId ?: java.util.UUID.randomUUID().toString())
+                                                val newList = absences.filter { it.id != finalAbsence.id }.toMutableList().apply { add(finalAbsence) }
+                                                viewModel.appSettings.absencesList = newList
+                                                absences = newList
+                                                viewModel.scheduleNotifications()
+                                                
+                                                startDate = null
+                                                if (!isPartial) endDate = null
+                                                note = ""
+                                                editingAbsenceId = null
+                                            }
                                         }
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Fechas inválidas", android.widget.Toast.LENGTH_SHORT).show()
                                     }
-                                } else {
-                                    android.widget.Toast.makeText(context, "Fechas inválidas", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            enabled = startDate != null && endDate != null
-                        ) {
-                            Text("Agregar Ausencia")
+                                },
+                                enabled = startDate != null && endDate != null
+                            ) {
+                                Text(if (editingAbsenceId != null) "Guardar Cambios" else "Agregar Ausencia")
+                            }
                         }
                     }
                 }
@@ -539,13 +645,16 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                         text = { Text("Hay $overlappingCount turno(s) agendado(s) en este período de tiempo. Si guarda esta ausencia, recuerde que debe cancelar o reprogramar los turnos manualmente. ¿Desea guardar la ausencia de todos modos?") },
                         confirmButton = {
                             TextButton(onClick = {
-                                val newList = absences.toMutableList().apply { add(showOverlapConfirm!!) }
+                                val finalAbsence = showOverlapConfirm!!
+                                val newList = absences.filter { it.id != finalAbsence.id }.toMutableList().apply { add(finalAbsence) }
                                 viewModel.appSettings.absencesList = newList
                                 absences = newList
+                                viewModel.scheduleNotifications()
                                 
                                 startDate = null
                                 if (!isPartial) endDate = null
                                 note = ""
+                                editingAbsenceId = null
                                 showOverlapConfirm = null
                             }) { Text("Sí, Guardar", color = MaterialTheme.colorScheme.primary) }
                         },
@@ -564,8 +673,9 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                     Text("No hay ausencias registradas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                items(absences.size) { index ->
-                    val absence = absences[index]
+                val sortedAbsences = absences.sortedBy { it.start }
+                items(sortedAbsences.size) { index ->
+                    val absence = sortedAbsences[index]
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -603,8 +713,31 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                                     }
                                 )
                             }
-                            IconButton(onClick = { showConfirmDelete = true }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            Row {
+                                IconButton(onClick = { 
+                                    editingAbsenceId = absence.id
+                                    startDate = absence.start
+                                    endDate = absence.end
+                                    isPartial = absence.isPartial
+                                    bloqueoTypeExpanded = false
+                                    typeExpanded = false
+                                    note = absence.note
+                                    startTime = absence.startTime.ifEmpty { "09:00" }
+                                    endTime = absence.endTime.ifEmpty { "12:00" }
+                                    val tList = if (absence.isPartial) typesParcial else typesExtensa
+                                    if (tList.contains(absence.type)) {
+                                        selectedType = absence.type
+                                        customType = ""
+                                    } else {
+                                        selectedType = "Personalizado"
+                                        customType = absence.type
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
+                                }
+                                IconButton(onClick = { showConfirmDelete = true }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }

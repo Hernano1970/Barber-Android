@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 import kotlinx.coroutines.flow.map
 import java.text.Collator
@@ -70,7 +71,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Example Initial Data
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.example.BackupHelper.checkAutoBackup(getApplication())
             // Uncomment to populate initial data for testing
             /*
             if (repository.allServices.first().isEmpty()) {
@@ -128,6 +130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     status = "Pendiente"
                 )
             )
+            com.example.NotificationHelper.scheduleAll(getApplication())
         }
     }
 
@@ -143,6 +146,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     status = "Pendiente"
                 )
             )
+            com.example.NotificationHelper.scheduleAll(getApplication())
         }
     }
 
@@ -155,6 +159,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateAppointment(appointment: Appointment) {
         viewModelScope.launch {
             repository.insertAppointment(appointment)
+            com.example.NotificationHelper.scheduleAll(getApplication())
         }
+    }
+    
+    fun scheduleNotifications() {
+        com.example.NotificationHelper.scheduleAll(getApplication())
     }
 }

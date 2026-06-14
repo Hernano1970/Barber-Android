@@ -83,26 +83,48 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
     var allContacts by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var duplicateWarning by remember { mutableStateOf<String?>(null) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
+    var missingPhoneContact by remember { mutableStateOf<PhoneContact?>(null) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             val contacts = mutableListOf<PhoneContact>()
             val cursor = context.contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                ContactsContract.Contacts.CONTENT_URI,
                 arrayOf(
-                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                    ContactsContract.Contacts._ID,
+                    ContactsContract.Contacts.DISPLAY_NAME,
+                    ContactsContract.Contacts.HAS_PHONE_NUMBER
                 ),
                 null, null, null
             )
             cursor?.use {
-                val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                val idIndex = it.getColumnIndex(ContactsContract.Contacts._ID)
+                val nameIndex = it.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+                val hasPhoneIndex = it.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
                 while (it.moveToNext()) {
+                    val id = it.getString(idIndex)
                     val name = it.getString(nameIndex) ?: ""
-                    var number = it.getString(numberIndex) ?: ""
-                    number = number.replace(Regex("[^0-9+]"), "")
-                    if (name.isNotBlank() && number.isNotBlank()) {
+                    val hasPhone = it.getInt(hasPhoneIndex) > 0
+                    var number = ""
+                    if (hasPhone) {
+                        val phoneCursor = context.contentResolver.query(
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            null,
+                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                            arrayOf(id),
+                            null
+                        )
+                        phoneCursor?.use { pc ->
+                            if (pc.moveToFirst()) {
+                                val numberIndex = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                if (numberIndex != -1) {
+                                    number = pc.getString(numberIndex) ?: ""
+                                    number = number.replace(Regex("[^0-9+]"), "")
+                                }
+                            }
+                        }
+                    }
+                    if (name.isNotBlank()) {
                         contacts.add(PhoneContact(name, number))
                     }
                 }
@@ -135,9 +157,13 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
                     supportingContent = { Text(contact.phone) },
                     trailingContent = {
                         Button(onClick = {
-                            val isDuplicate = clients.any { it.isPermanent && (it.phone == contact.phone || it.phone.replace(Regex("[^0-9+]"), "") == contact.phone) }
+                            val isDuplicate = if (contact.phone.isNotBlank()) {
+                                clients.any { it.isPermanent && (it.phone == contact.phone || it.phone.replace(Regex("[^0-9+]"), "") == contact.phone) }
+                            } else false
                             if (isDuplicate) {
                                 duplicateWarning = "Este cliente ya se encuentra registrado."
+                            } else if (contact.phone.isBlank()) {
+                                missingPhoneContact = contact
                             } else {
                                 viewModel.addClient(contact.name, contact.phone, "")
                                 snackbarMessage = "Contacto importado: ${contact.name}"
@@ -150,6 +176,25 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
                 HorizontalDivider()
             }
         }
+    }
+
+    if (missingPhoneContact != null) {
+        val contact = missingPhoneContact!!
+        AlertDialog(
+            onDismissRequest = { missingPhoneContact = null },
+            title = { Text("ATENCIÓN") },
+            text = { Text("Este cliente no tiene un número de teléfono registrado. Si continúa, no será posible enviar notificaciones ni recordatorios de turnos mediante WhatsApp. ¿Desea guardar el cliente de todas formas?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.addClient(contact.name, contact.phone, "")
+                    snackbarMessage = "Contacto importado: ${contact.name}"
+                    missingPhoneContact = null
+                }) { Text("Guardar de Todas Formas", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { missingPhoneContact = null }) { Text("Volver y Completar Teléfono") }
+            }
+        )
     }
 
     if (duplicateWarning != null) {

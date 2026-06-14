@@ -89,6 +89,64 @@ class AppSettings(context: Context) {
         get() = prefs.getString("businessName", "BarberApp Pro") ?: "BarberApp Pro"
         set(value) = prefs.edit().putString("businessName", value).apply()
 
+    var turnReminderEnabled: Boolean
+        get() = prefs.getBoolean("turnReminderEnabled", false)
+        set(value) = prefs.edit().putBoolean("turnReminderEnabled", value).apply()
+
+    var turnReminderMinutes: Int
+        get() = prefs.getInt("turnReminderMinutes", 15)
+        set(value) = prefs.edit().putInt("turnReminderMinutes", value).apply()
+        
+    var dailyStartReminderEnabled: Boolean
+        get() = prefs.getBoolean("dailyStartReminderEnabled", false)
+        set(value) = prefs.edit().putBoolean("dailyStartReminderEnabled", value).apply()
+        
+    var dailyStartReminderTime: String
+        get() = prefs.getString("dailyStartReminderTime", "08:00") ?: "08:00"
+        set(value) = prefs.edit().putString("dailyStartReminderTime", value).apply()
+        
+    var absenceReminderDays: Int
+        get() = prefs.getInt("absenceReminderDays", 1)
+        set(value) = prefs.edit().putInt("absenceReminderDays", value).apply()
+
+    var absenceReminderTimeType: String
+        get() = prefs.getString("absenceReminderTimeType", "00:00") ?: "00:00"
+        set(value) = prefs.edit().putString("absenceReminderTimeType", value).apply()
+        
+    var notifiedAbsences: Set<String>
+        get() = prefs.getStringSet("notifiedAbsences", emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet("notifiedAbsences", value).apply()
+        
+    fun setAbsenceNotified(id: String) {
+        val current = notifiedAbsences.toMutableSet()
+        current.add(id)
+        notifiedAbsences = current
+    }
+
+    fun isAbsenceNotified(id: String): Boolean {
+        return notifiedAbsences.contains(id)
+    }
+
+    var dailySummaryEnabled: Boolean
+        get() = prefs.getBoolean("dailySummaryEnabled", false)
+        set(value) = prefs.edit().putBoolean("dailySummaryEnabled", value).apply()
+        
+    var dailySummaryTime: String
+        get() = prefs.getString("dailySummaryTime", "20:00") ?: "20:00"
+        set(value) = prefs.edit().putString("dailySummaryTime", value).apply()
+        
+    var soundEnabled: Boolean
+        get() = prefs.getBoolean("soundEnabled", true)
+        set(value) = prefs.edit().putBoolean("soundEnabled", value).apply()
+        
+    var vibrationEnabled: Boolean
+        get() = prefs.getBoolean("vibrationEnabled", true)
+        set(value) = prefs.edit().putBoolean("vibrationEnabled", value).apply()
+        
+    var silentModeUntil: Long
+        get() = prefs.getLong("silentModeUntil", 0)
+        set(value) = prefs.edit().putLong("silentModeUntil", value).apply()
+
     var businessAddress: String
         get() = prefs.getString("businessAddress", "") ?: ""
         set(value) = prefs.edit().putString("businessAddress", value).apply()
@@ -103,6 +161,26 @@ class AppSettings(context: Context) {
             "Hola {nombre}, te recordamos tu turno para el {fecha} a las {hora}. Te esperamos en {negocio}."
         ) ?: ""
         set(value) = prefs.edit().putString("whatsappMessageTemplate", value).apply()
+
+    var statisticsStartDate: Long
+        get() = prefs.getLong("statisticsStartDate", 0L)
+        set(value) = prefs.edit().putLong("statisticsStartDate", value).apply()
+
+    var backupLocation: String
+        get() = prefs.getString("backupLocation", android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath + "/BarberApp/Backups") ?: ""
+        set(value) = prefs.edit().putString("backupLocation", value).apply()
+
+    var autoBackupFrequency: String
+        get() = prefs.getString("autoBackupFrequency", "Desactivado") ?: "Desactivado"
+        set(value) = prefs.edit().putString("autoBackupFrequency", value).apply()
+
+    var maxAutoBackups: Int
+        get() = prefs.getInt("maxAutoBackups", 10)
+        set(value) = prefs.edit().putInt("maxAutoBackups", value).apply()
+
+    var autoBackupTime: String
+        get() = prefs.getString("autoBackupTime", "02:00") ?: "02:00"
+        set(value) = prefs.edit().putString("autoBackupTime", value).apply()
 
     // working hours (JSON string or simple delimited)
     // format: monday:08:00-20:00,tuesday...

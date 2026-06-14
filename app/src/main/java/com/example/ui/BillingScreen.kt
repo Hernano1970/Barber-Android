@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,7 +121,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                             Text("Tarj", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthCard)}", style = MaterialTheme.typography.bodySmall)
                         }
                         Row(modifier = Modifier.width(120.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Tran", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthTrans)}", style = MaterialTheme.typography.bodySmall)
+                            Text("Transf.", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthTrans)}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -159,7 +160,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
             }
 
             // Table Header
-            val columnWidths = listOf(100.dp, 120.dp, 100.dp, 100.dp, 90.dp, 130.dp, 90.dp, 100.dp)
+            val columnWidths = listOf(100.dp, 130.dp, 100.dp, 90.dp, 90.dp, 130.dp, 90.dp, 100.dp)
             val headerScrollState = rememberScrollState()
             
             Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -182,7 +183,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                     val service = services.find { it.id == appt.serviceId }
                     val price = service?.price ?: 0.0
                     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-                    val dateTimeFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+                    val dateTimeFormat = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
                     
                     val dateFormatted = dateFormat.format(Date(appt.dateTimestamp))
                     val turnFormatted = dateTimeFormat.format(Date(appt.dateTimestamp))
@@ -195,11 +196,15 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(dateFormatted, modifier = Modifier.width(columnWidths[0]), fontSize = 13.sp)
-                        Text(client?.fullName ?: "Desconocido", modifier = Modifier.width(columnWidths[1]), fontSize = 13.sp)
-                        Text(service?.name ?: "Servicio", modifier = Modifier.width(columnWidths[2]), fontSize = 13.sp)
+                        val displayMethod = if (appt.isPaid) {
+                            if (appt.paymentMethod == "Transferencia") "Transf." else appt.paymentMethod
+                        } else "-"
+
+                        Text(dateFormatted, modifier = Modifier.width(columnWidths[0]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(client?.fullName ?: "Desconocido", modifier = Modifier.width(columnWidths[1]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(service?.name ?: "Servicio", modifier = Modifier.width(columnWidths[2]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         
-                        Text(if (appt.isPaid) appt.paymentMethod else "-", modifier = Modifier.width(columnWidths[3]), fontSize = 13.sp, color = if(appt.isPaid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Text(displayMethod, modifier = Modifier.width(columnWidths[3]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if(appt.isPaid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         
                         // Estado chip
                         Box(
@@ -219,8 +224,8 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                             )
                         }
 
-                        Text(turnFormatted, modifier = Modifier.width(columnWidths[5]), fontSize = 13.sp)
-                        Text("$${"%.2f".format(price)}", modifier = Modifier.width(columnWidths[6]), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(turnFormatted, modifier = Modifier.width(columnWidths[5]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("$${"%.2f".format(price)}", modifier = Modifier.width(columnWidths[6]), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         
                         Row(
                             modifier = Modifier.width(columnWidths[7]),
@@ -230,7 +235,11 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                             if (appt.isPaid) {
                                 IconButton(
                                     onClick = {
-                                        viewModel.updateAppointment(appt.copy(isPaid = false, paymentMethod = ""))
+                                        viewModel.updateAppointment(appt.copy(
+                                            isPaid = false, 
+                                            paymentMethod = "", 
+                                            status = "Pendiente"
+                                        ))
                                     },
                                     modifier = Modifier.size(32.dp)
                                 ) {

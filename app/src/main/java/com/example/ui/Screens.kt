@@ -36,8 +36,22 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
         todayIncome += (service?.price ?: 0.0)
     }
 
+    val todayStart = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+    
+    val absencesList = viewModel.appSettings.absencesList.filter { it.end >= todayStart }
+    val extensasCount = absencesList.count { !it.isPartial }
+    val parcialesCount = absencesList.count { it.isPartial }
+    val hasAttentionAbsence = absencesList.any { it.start <= todayStart + 7 * 24 * 60 * 60 * 1000L }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Resumen de Hoy", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Panel de Control", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -66,11 +80,44 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
             )
              Spacer(modifier = Modifier.width(16.dp))
              StatCard(
-                title = "Ingresos Hoy",
+                title = "Estadísticas",
                 value = "$${"%.0f".format(todayIncome)}",
-                icon = Icons.Filled.AttachMoney,
-                modifier = Modifier.weight(1f)
+                icon = Icons.Filled.BarChart,
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate("statistics") }
             )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val titleText = "Ausencias Registradas"
+            val valueText = "$extensasCount Extensas\n$parcialesCount Parciales"
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { navController.navigate("ausencias_read_only") },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Box(modifier = Modifier.padding(16.dp)) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.EventBusy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(titleText, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (hasAttentionAbsence) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(MaterialTheme.colorScheme.error)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(valueText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
         }
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -223,7 +270,15 @@ fun ClientsScreen(viewModel: MainViewModel, navController: NavController) {
                     headlineContent = { Text(client.fullName, fontWeight = FontWeight.Bold) },
                     supportingContent = {
                         Column {
-                            Text(client.phone)
+                            if (client.phone.isBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Warning, contentDescription = "Sin Teléfono", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Sin teléfono registrado", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                }
+                            } else {
+                                Text(client.phone)
+                            }
                             if (client.observations.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
@@ -441,7 +496,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             text = if (isAbsence) {
                                 val type = absenceDay?.type ?: "Día Libre"
                                 val note = absenceDay?.note ?: ""
-                                if (note.isNotBlank()) "$type / $note" else type
+                                if (note.isNotBlank()) "$type\n$note" else type
                             } else {
                                 "Cerrado en este día"
                             },
@@ -530,13 +585,13 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                 if (overlappingBlocked != null) {
                                     val partial = overlappingBlocked.third
                                     Card(
-                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
                                     ) {
                                         Column(modifier = Modifier.padding(8.dp).fillMaxSize(), verticalArrangement = Arrangement.Center) {
                                             Text("Ausencia Parcial: ${partial.type}", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
                                             if (partial.note.isNotBlank()) {
-                                                Text(partial.note, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                                Text(partial.note, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
                                             }
                                         }
                                     }
@@ -624,21 +679,25 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
                         }
                         
-                        if (client != null && client.phone.isNotBlank()) {
+                        if (client != null) {
                             IconButton(onClick = {
-                                val template = viewModel.appSettings.whatsappMessageTemplate
-                                val dateStr = dateFormat.format(Date(appt.dateTimestamp))
-                                val timeStr = timeFormat.format(Date(appt.dateTimestamp))
-                                val businessName = viewModel.appSettings.businessName
-                                
-                                val message = template
-                                    .replace("{nombre}", client.fullName)
-                                    .replace("{fecha}", dateStr)
-                                    .replace("{hora}", timeStr)
-                                    .replace("{negocio}", businessName)
-                                
-                                sendWhatsAppMessage(context, client.phone, message)
-                                showOptionsForAppt = null
+                                if (client.phone.isBlank()) {
+                                    android.widget.Toast.makeText(context, "No es posible realizar el envío porque el cliente no posee un número registrado.", android.widget.Toast.LENGTH_LONG).show()
+                                } else {
+                                    val template = viewModel.appSettings.whatsappMessageTemplate
+                                    val dateStr = dateFormat.format(Date(appt.dateTimestamp))
+                                    val timeStr = timeFormat.format(Date(appt.dateTimestamp))
+                                    val businessName = viewModel.appSettings.businessName
+                                    
+                                    val message = template
+                                        .replace("{nombre}", client.fullName)
+                                        .replace("{fecha}", dateStr)
+                                        .replace("{hora}", timeStr)
+                                        .replace("{negocio}", businessName)
+                                    
+                                    sendWhatsAppMessage(context, client.phone, message)
+                                    showOptionsForAppt = null
+                                }
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
                             }

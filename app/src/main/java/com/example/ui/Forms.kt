@@ -41,6 +41,7 @@ fun AddClientScreen(viewModel: MainViewModel, navController: NavController) {
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
             var showError by remember { mutableStateOf(false) }
+            var showPhoneWarning by remember { mutableStateOf(false) }
 
             OutlinedTextField(
                 value = name,
@@ -63,14 +64,36 @@ fun AddClientScreen(viewModel: MainViewModel, navController: NavController) {
                 }
                 Button(onClick = {
                     if (name.isNotBlank()) {
-                        viewModel.addClient(name, phone, obs)
-                        navController.popBackStack()
+                        if (phone.isBlank() && !showPhoneWarning) {
+                            showPhoneWarning = true
+                        } else {
+                            viewModel.addClient(name, phone, obs)
+                            navController.popBackStack()
+                        }
                     } else {
                         showError = true
                     }
                 }, modifier = Modifier.weight(1f)) {
                     Text("Guardar")
                 }
+            }
+            
+            if (showPhoneWarning) {
+                AlertDialog(
+                    onDismissRequest = { showPhoneWarning = false },
+                    title = { Text("ATENCIÓN") },
+                    text = { Text("Este cliente no tiene un número de teléfono registrado. Si continúa, no será posible enviar notificaciones ni recordatorios de turnos mediante WhatsApp. ¿Desea guardar el cliente de todas formas?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.addClient(name, phone, obs)
+                            showPhoneWarning = false
+                            navController.popBackStack()
+                        }) { Text("Guardar de Todas Formas", color = MaterialTheme.colorScheme.primary) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPhoneWarning = false }) { Text("Volver y Completar Teléfono") }
+                    }
+                )
             }
         }
     }
@@ -572,6 +595,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             var snackbarMessage by remember { mutableStateOf<String?>(null) }
             var duplicateApptWarning by remember { mutableStateOf<com.example.data.Appointment?>(null) }
             var duplicateClientWarning by remember { mutableStateOf(false) }
+            var showPhoneWarning by remember { mutableStateOf(false) }
 
             val saveAppointment = {
                 if (isCasualClient && casualClientName.isNotBlank() && selectedServiceId != null) {
@@ -642,11 +666,30 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                     duplicateApptWarning = duplicate
                 } else if (isCasualClient && saveAsPermanent && casualClientPhone.isNotBlank() && clients.any { it.phone == casualClientPhone && it.isPermanent }) {
                     duplicateClientWarning = true
+                } else if (isCasualClient && casualClientPhone.isBlank() && !showPhoneWarning) {
+                    showPhoneWarning = true
                 } else {
                     saveAppointment()
                 }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Confirmar Turno")
+            }
+
+            if (showPhoneWarning) {
+                AlertDialog(
+                    onDismissRequest = { showPhoneWarning = false },
+                    title = { Text("ATENCIÓN") },
+                    text = { Text("Este cliente no tiene un número de teléfono registrado. Si continúa, no será posible enviar notificaciones ni recordatorios de turnos mediante WhatsApp. ¿Desea guardar el cliente de todas formas?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            saveAppointment()
+                            showPhoneWarning = false
+                        }) { Text("Guardar de Todas Formas", color = MaterialTheme.colorScheme.primary) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPhoneWarning = false }) { Text("Volver y Completar Teléfono") }
+                    }
+                )
             }
 
             if (duplicateClientWarning) {
@@ -856,6 +899,39 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
+                
+                var statusExpanded by remember { mutableStateOf(false) }
+                var currentStatus by remember(appt) { mutableStateOf(appt?.status ?: "Pendiente") }
+                
+                ExposedDropdownMenuBox(
+                    expanded = statusExpanded,
+                    onExpandedChange = { statusExpanded = !statusExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = currentStatus,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Estado") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
+                        modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryEditable, enabled = true).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = statusExpanded,
+                        onDismissRequest = { statusExpanded = false }
+                    ) {
+                        listOf("Pendiente", "Completado", "Cancelado", "Pagado").forEach { s ->
+                            DropdownMenuItem(
+                                text = { Text(s) },
+                                onClick = {
+                                    currentStatus = s
+                                    statusExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(value = observations, onValueChange = { observations = it }, label = { Text("Observaciones/Agenda") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 
@@ -870,7 +946,9 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                                 clientId = selectedClientId!!,
                                 serviceId = selectedServiceId!!,
                                 dateTimestamp = selectedDate,
-                                observations = observations
+                                observations = observations,
+                                status = currentStatus,
+                                isPaid = if (currentStatus == "Pagado") true else (if (currentStatus == "Pendiente") false else appt.isPaid)
                             )
                         )
                         navController.popBackStack()

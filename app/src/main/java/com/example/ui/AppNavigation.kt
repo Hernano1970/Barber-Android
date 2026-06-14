@@ -93,6 +93,9 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             composable(Screen.Settings.route) {
                 SettingsScreen(viewModel, navController)
             }
+            composable("statistics") {
+                StatisticsScreen(viewModel, navController)
+            }
             composable("settings_business") {
                 BusinessProfileScreen(viewModel, navController)
             }
@@ -104,6 +107,15 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             }
             composable("settings_whatsapp") {
                 WhatsAppSettingsScreen(viewModel, navController)
+            }
+            composable("settings_notifications") {
+                NotificationsSettingsScreen(viewModel, navController)
+            }
+            composable("settings_backup") {
+                BackupSettingsScreen(viewModel, navController)
+            }
+            composable("ausencias_read_only") {
+                AusenciasReadOnlyScreen(viewModel, navController)
             }
             composable("upcoming_appointments") {
                 UpcomingAppointmentsScreen(viewModel, navController)
