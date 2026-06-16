@@ -162,6 +162,47 @@ class AppSettings(context: Context) {
         ) ?: ""
         set(value) = prefs.edit().putString("whatsappMessageTemplate", value).apply()
 
+    var whatsappTransferTemplate: String
+        get() = prefs.getString(
+            "whatsappTransferTemplate",
+            "¡Hola {nombre}!\n\nTe comparto mis datos para que puedas realizar el pago correspondiente a:\n\nServicio: {servicio}\n\nImporte: \${importe}\n\nBilletera: {billetera}\n\nAlias: {alias}\nCVU: {cvu}\nTitular: {titular}\n\nMuchas gracias."
+        ) ?: ""
+        set(value) = prefs.edit().putString("whatsappTransferTemplate", value).apply()
+
+    var whatsappSentRecords: Map<Int, Long>
+        get() {
+            val jsonString = prefs.getString("whatsappSentRecords", "{}") ?: "{}"
+            val map = mutableMapOf<Int, Long>()
+            try {
+                val obj = JSONObject(jsonString)
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    map[key.toInt()] = obj.getLong(key)
+                }
+            } catch (e: Exception) {}
+            return map
+        }
+        set(value) {
+            val obj = JSONObject()
+            try {
+                for ((k, v) in value) {
+                    obj.put(k.toString(), v)
+                }
+            } catch (e: Exception) {}
+            prefs.edit().putString("whatsappSentRecords", obj.toString()).apply()
+        }
+
+    fun markWhatsAppSent(appointmentId: Int) {
+        val map = whatsappSentRecords.toMutableMap()
+        map[appointmentId] = System.currentTimeMillis()
+        whatsappSentRecords = map
+    }
+
+    fun getWhatsAppSentTime(appointmentId: Int): Long? {
+        return whatsappSentRecords[appointmentId]
+    }
+
     var statisticsStartDate: Long
         get() = prefs.getLong("statisticsStartDate", 0L)
         set(value) = prefs.edit().putLong("statisticsStartDate", value).apply()

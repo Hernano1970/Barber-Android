@@ -66,6 +66,44 @@ class NotificationReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
+                // Verify if absence still exists
+                val absenceId = intent.getStringExtra("absenceId")
+                if (absenceId != null) {
+                    val exists = appSettings.absencesList.any { it.id == absenceId }
+                    if (!exists) return@launch
+                } else if (intent.action?.startsWith("ABSENCE_REMINDER_") == true) {
+                    val reqCodeStr = intent.action?.removePrefix("ABSENCE_REMINDER_")
+                    val reqCode = reqCodeStr?.toIntOrNull()
+                    if (reqCode != null) {
+                        val exists = appSettings.absencesList.any { it.id.hashCode() == reqCode }
+                        if (!exists) return@launch
+                    }
+                } else if (intent.action?.startsWith("PARTIAL_ABSENCE_") == true) {
+                    val reqCodeStr = intent.action?.removePrefix("PARTIAL_ABSENCE_")
+                    val reqCode = reqCodeStr?.toIntOrNull()
+                    if (reqCode != null) {
+                        val exists = appSettings.absencesList.any { (it.id.hashCode() + 1) == reqCode }
+                        if (!exists) return@launch
+                    }
+                }
+
+                // Verify if appointment still exists and is correct status
+                val appointmentId = intent.getIntExtra("appointmentId", -1)
+                if (appointmentId != -1) {
+                    val db = com.example.data.AppDatabase.getDatabase(context)
+                    val appt = db.appointmentDao().getAllAppointments().first().find { it.id == appointmentId }
+                    if (appt == null || appt.status != "Pendiente") return@launch
+                } else if (intent.action?.startsWith("TURN_REMINDER_") == true) {
+                    val reqCodeStr = intent.action?.removePrefix("TURN_REMINDER_")
+                    val reqCode = reqCodeStr?.toIntOrNull()
+                    if (reqCode != null) {
+                        val originalApptId = reqCode - 10000
+                        val db = com.example.data.AppDatabase.getDatabase(context)
+                        val appt = db.appointmentDao().getAllAppointments().first().find { it.id == originalApptId }
+                        if (appt == null || appt.status != "Pendiente") return@launch
+                    }
+                }
+
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 val channelId = "barberapp_notifications"
                 

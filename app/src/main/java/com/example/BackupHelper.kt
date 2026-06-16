@@ -67,6 +67,16 @@ object BackupHelper {
                     FileInputStream(prefsFile).use { it.copyTo(zos) }
                     zos.closeEntry()
                 }
+
+                // Backup QR images
+                val filesDir = context.filesDir
+                filesDir.listFiles()?.forEach { file ->
+                    if (file.isFile && file.name.startsWith("qr_")) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("files/${file.name}"))
+                        FileInputStream(file).use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                }
             }
             
             // Clean up old backups if limit is set
@@ -213,6 +223,10 @@ object BackupHelper {
                             foundWal = true
                         } else if (entry.name == "barberapp_settings.xml") {
                             FileOutputStream(prefsFile).use { it.write(zis.readBytes()) }
+                        } else if (entry.name.startsWith("files/qr_")) {
+                            val fileName = entry.name.substring("files/".length)
+                            val file = File(context.filesDir, fileName)
+                            FileOutputStream(file).use { it.write(zis.readBytes()) }
                         }
                         entry = zis.nextEntry
                     }

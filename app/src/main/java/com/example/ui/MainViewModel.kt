@@ -49,6 +49,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
+    val wallets: StateFlow<List<Wallet>> = repository.allWallets.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val todayAppointmentCount: StateFlow<Int> = repository.getAppointmentCountForToday().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -152,7 +158,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteAppointment(appointment: Appointment) {
         viewModelScope.launch {
-            repository.deleteAppointment(appointment)
+            if (appointment.isPaid) {
+                repository.insertAppointment(appointment.copy(status = "Eliminado"))
+            } else {
+                repository.deleteAppointment(appointment)
+            }
         }
     }
 
@@ -165,5 +175,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     fun scheduleNotifications() {
         com.example.NotificationHelper.scheduleAll(getApplication())
+    }
+
+    fun updateWallet(wallet: Wallet) {
+        viewModelScope.launch {
+            repository.insertWallet(wallet)
+        }
+    }
+
+    fun deleteWallet(wallet: Wallet) {
+        viewModelScope.launch {
+            repository.deleteWallet(wallet)
+        }
     }
 }

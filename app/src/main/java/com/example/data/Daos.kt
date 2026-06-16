@@ -56,3 +56,15 @@ interface AppointmentDao {
     @Query("SELECT COUNT(*) FROM appointments WHERE dateTimestamp >= :startOfDay AND dateTimestamp < :endOfDay")
     fun getAppointmentCountForDay(startOfDay: Long, endOfDay: Long): Flow<Int>
 }
+
+@Dao
+interface WalletDao {
+    @Query("SELECT * FROM wallets ORDER BY name ASC")
+    fun getAllWallets(): Flow<List<Wallet>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWallet(wallet: Wallet)
+
+    @Delete
+    suspend fun deleteWallet(wallet: Wallet)
+}

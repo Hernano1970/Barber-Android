@@ -261,26 +261,50 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
     }
 
     if (deleteConfirmAppt != null) {
-        AlertDialog(
-            onDismissRequest = { deleteConfirmAppt = null },
-            title = { Text("Confirmar Eliminación") },
-            text = { Text("¿Estás seguro que deseas eliminar este turno? Esta acción no se puede deshacer y lo eliminará del calendario.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteAppointment(deleteConfirmAppt!!)
-                        deleteConfirmAppt = null
+        val deleteAppt = deleteConfirmAppt!!
+        if (deleteAppt.isPaid) {
+            AlertDialog(
+                onDismissRequest = { deleteConfirmAppt = null },
+                title = { Text("Eliminar Servicio") },
+                text = { Text("Este servicio ya fue registrado como Pagado.\n\nSi elimina este registro:\n• Se eliminará de la Agenda.\n• Se eliminará de Pagos y Facturación.\n• Los ingresos y estadísticas ya contabilizados NO serán modificados.\n\n¿Desea continuar?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteAppointment(deleteAppt)
+                            deleteConfirmAppt = null
+                        }
+                    ) {
+                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
                     }
-                ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                },
+                dismissButton = {
+                    TextButton(onClick = { deleteConfirmAppt = null }) {
+                        Text("Cancelar")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteConfirmAppt = null }) {
-                    Text("Cancelar")
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { deleteConfirmAppt = null },
+                title = { Text("Confirmar Eliminación") },
+                text = { Text("¿Estás seguro que deseas eliminar este turno? Esta acción no se puede deshacer y lo eliminará del calendario.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteAppointment(deleteAppt)
+                            deleteConfirmAppt = null
+                        }
+                    ) {
+                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deleteConfirmAppt = null }) {
+                        Text("Cancelar")
+                    }
                 }
-            }
-        )
+            )
+        }
     }
 
     // Payment Dialog
@@ -358,21 +382,50 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = { paymentDialogAppt = null }) {
-                            Text("Cancelar", color = MaterialTheme.colorScheme.error)
+                    if (selectedMethod == "Transferencia") {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                viewModel.updateAppointment(appt.copy(
+                                    isPaid = true,
+                                    paymentMethod = selectedMethod,
+                                    status = "Pagado"
+                                ))
+                                paymentDialogAppt = null
+                            }, modifier = Modifier.weight(1f)) {
+                                Text("Rápida", fontSize = 12.sp)
+                            }
+                            Button(onClick = {
+                                paymentDialogAppt = null
+                                navController.navigate("collect_qr/${appt.id}")
+                            }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                Icon(Icons.Filled.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Cobrar QR", fontSize = 12.sp)
+                            }
                         }
-                        Button(onClick = {
-                            viewModel.updateAppointment(appt.copy(
-                                isPaid = true,
-                                paymentMethod = selectedMethod,
-                                status = "Pagado" // Also update text status just in case
-                            ))
-                            paymentDialogAppt = null
-                        }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))) {
-                            Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Marcar Pagado")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                            TextButton(onClick = { paymentDialogAppt = null }) {
+                                Text("Cancelar", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            TextButton(onClick = { paymentDialogAppt = null }) {
+                                Text("Cancelar", color = MaterialTheme.colorScheme.error)
+                            }
+                            Button(onClick = {
+                                viewModel.updateAppointment(appt.copy(
+                                    isPaid = true,
+                                    paymentMethod = selectedMethod,
+                                    status = "Pagado" // Also update text status just in case
+                                ))
+                                paymentDialogAppt = null
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))) {
+                                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Marcar Pagado")
+                            }
                         }
                     }
                 }

@@ -45,6 +45,7 @@ object NotificationHelper {
                                 putExtra("title", "Próximo turno en ${appSettings.turnReminderMinutes} minutos")
                                 putExtra("message", "$clientName - $serviceName a las $timeStr hs.")
                                 putExtra("notificationId", (appt.id + 10000))
+                                putExtra("appointmentId", appt.id)
                             }
                             scheduleExactAlarm(context, alarmManager, intent, reminderTime, appt.id + 10000)
                         }
@@ -95,7 +96,7 @@ object NotificationHelper {
             }
 
             // 4. Absences and Blocks
-            appSettings.absencesList.filter { it.start > now }.forEach { absence ->
+            appSettings.absencesList.filter { it.end + 86400000L > now }.forEach { absence ->
                 // Extensive absence
                 var targetTime = absence.start - (appSettings.absenceReminderDays * 86400000L)
                 if (appSettings.absenceReminderTimeType == "InicioJornada") {
@@ -117,6 +118,7 @@ object NotificationHelper {
                         putExtra("title", typeStr)
                         putExtra("message", "A partir del ${df.format(java.util.Date(absence.start))}.")
                         putExtra("notificationId", absence.id.hashCode())
+                        putExtra("absenceId", absence.id)
                     }
                     scheduleExactAlarm(context, alarmManager, intent, targetTime, absence.id.hashCode())
                 } else if (!appSettings.isAbsenceNotified(absence.id)) {
@@ -125,6 +127,7 @@ object NotificationHelper {
                         putExtra("title", typeStr)
                         putExtra("message", "A partir del ${df.format(java.util.Date(absence.start))}.")
                         putExtra("notificationId", absence.id.hashCode())
+                        putExtra("absenceId", absence.id)
                     }
                     context.sendBroadcast(intent)
                     appSettings.setAbsenceNotified(absence.id)
@@ -146,6 +149,7 @@ object NotificationHelper {
                                 putExtra("title", "Bloqueo Próximo")
                                 putExtra("message", "Tienes un bloqueo parcial de ${absence.startTime} a ${absence.endTime}.")
                                 putExtra("notificationId", (absence.id.hashCode() + 1))
+                                putExtra("absenceId", absence.id)
                             }
                             scheduleExactAlarm(context, alarmManager, intent, partialTime, absence.id.hashCode() + 1)
                         }

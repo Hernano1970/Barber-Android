@@ -149,7 +149,7 @@ fun UpcomingAppointmentsScreen(viewModel: MainViewModel, navController: NavContr
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
-    val upcomingAppointments = allAppointments.filter { it.dateTimestamp >= today }.sortedBy { it.dateTimestamp }
+    val upcomingAppointments = allAppointments.filter { it.dateTimestamp >= today && it.status != "Eliminado" }.sortedBy { it.dateTimestamp }
 
     Scaffold(
         topBar = {
@@ -418,6 +418,8 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale("es", "ES"))
 
     var showOptionsForAppt by remember { mutableStateOf<com.example.data.Appointment?>(null) }
+    var deleteConfirmAppt by remember { mutableStateOf<com.example.data.Appointment?>(null) }
+    var showWhatsAppConfirmAppt by remember { mutableStateOf<com.example.data.Appointment?>(null) }
     var showNoServicesDialog by remember { mutableStateOf(false) }
 
     val dayOfWeek = selectedDate.get(Calendar.DAY_OF_WEEK)
@@ -558,7 +560,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                             val duration = service?.durationMinutes ?: 30
                             val apptEnd = appt.dateTimestamp + (duration * 60 * 1000)
                             
-                            appt.dateTimestamp < slotEnd.timeInMillis && apptEnd > slotStart.timeInMillis
+                            appt.dateTimestamp < slotEnd.timeInMillis && apptEnd > slotStart.timeInMillis && appt.status != "Eliminado"
                         }
 
                         Row(
@@ -649,6 +651,12 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                                         Spacer(modifier = Modifier.height(4.dp))
                                                         Text("Observaciones/Cliente: ${client?.observations}", style = MaterialTheme.typography.bodySmall, color = textColor.copy(alpha = 0.8f))
                                                     }
+                                                    val lastSent = viewModel.appSettings.getWhatsAppSentTime(appt.id)
+                                                    if (lastSent != null) {
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm")
+                                                        Text("Último WhatsApp enviado: ${sdf.format(java.util.Date(lastSent))}", style = MaterialTheme.typography.bodySmall, color = textColor.copy(alpha = 0.8f))
+                                                    }
                                                 }
                                             }
                                         }
@@ -673,7 +681,7 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                 confirmButton = {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
-                            viewModel.deleteAppointment(appt)
+                            deleteConfirmAppt = appt
                             showOptionsForAppt = null
                         }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
@@ -684,19 +692,26 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                 if (client.phone.isBlank()) {
                                     android.widget.Toast.makeText(context, "No es posible realizar el envío porque el cliente no posee un número registrado.", android.widget.Toast.LENGTH_LONG).show()
                                 } else {
-                                    val template = viewModel.appSettings.whatsappMessageTemplate
-                                    val dateStr = dateFormat.format(Date(appt.dateTimestamp))
-                                    val timeStr = timeFormat.format(Date(appt.dateTimestamp))
-                                    val businessName = viewModel.appSettings.businessName
-                                    
-                                    val message = template
-                                        .replace("{nombre}", client.fullName)
-                                        .replace("{fecha}", dateStr)
-                                        .replace("{hora}", timeStr)
-                                        .replace("{negocio}", businessName)
-                                    
-                                    sendWhatsAppMessage(context, client.phone, message)
-                                    showOptionsForAppt = null
+                                    val lastSent = viewModel.appSettings.getWhatsAppSentTime(appt.id)
+                                    if (lastSent != null) {
+                                        showWhatsAppConfirmAppt = appt
+                                        showOptionsForAppt = null
+                                    } else {
+                                        viewModel.appSettings.markWhatsAppSent(appt.id)
+                                        val template = viewModel.appSettings.whatsappMessageTemplate
+                                        val dateStr = dateFormat.format(Date(appt.dateTimestamp))
+                                        val timeStr = timeFormat.format(Date(appt.dateTimestamp))
+                                        val businessName = viewModel.appSettings.businessName
+                                        
+                                        val message = template
+                                            .replace("{nombre}", client.fullName)
+                                            .replace("{fecha}", dateStr)
+                                            .replace("{hora}", timeStr)
+                                            .replace("{negocio}", businessName)
+                                        
+                                        sendWhatsAppMessage(context, client.phone, message)
+                                        showOptionsForAppt = null
+                                    }
                                 }
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
@@ -713,6 +728,88 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                         TextButton(onClick = { showOptionsForAppt = null }) {
                             Text("Cancelar")
                         }
+                    }
+                }
+            )
+        }
+
+        if (deleteConfirmAppt != null) {
+            val deleteAppt = deleteConfirmAppt!!
+            if (deleteAppt.isPaid) {
+                AlertDialog(
+                    onDismissRequest = { deleteConfirmAppt = null },
+                    title = { Text("Eliminar Servicio") },
+                    text = { Text("Este servicio ya fue registrado como Pagado.\n\nSi elimina este registro:\n• Se eliminará de la Agenda.\n• Se eliminará de Pagos y Facturación.\n• Los ingresos y estadísticas ya contabilizados NO serán modificados.\n\n¿Desea continuar?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteAppointment(deleteAppt)
+                                deleteConfirmAppt = null
+                            }
+                        ) {
+                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { deleteConfirmAppt = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            } else {
+                AlertDialog(
+                    onDismissRequest = { deleteConfirmAppt = null },
+                    title = { Text("Confirmar Eliminación") },
+                    text = { Text("¿Estás seguro que deseas eliminar este turno? Esta acción no se puede deshacer y lo eliminará del calendario.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteAppointment(deleteAppt)
+                                deleteConfirmAppt = null
+                            }
+                        ) {
+                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { deleteConfirmAppt = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
+        }
+
+        if (showWhatsAppConfirmAppt != null) {
+            val appt = showWhatsAppConfirmAppt!!
+            val client = clients.find { it.id == appt.clientId }
+            AlertDialog(
+                onDismissRequest = { showWhatsAppConfirmAppt = null },
+                title = { Text("WhatsApp ya enviado") },
+                text = { Text("Ya se envió un WhatsApp para este turno.\n\n¿Desea enviarlo nuevamente?") },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.appSettings.markWhatsAppSent(appt.id)
+                        val template = viewModel.appSettings.whatsappMessageTemplate
+                        val dateStr = dateFormat.format(Date(appt.dateTimestamp))
+                        val timeStr = timeFormat.format(Date(appt.dateTimestamp))
+                        val businessName = viewModel.appSettings.businessName
+                        
+                        val message = template
+                            .replace("{nombre}", client?.fullName ?: "")
+                            .replace("{fecha}", dateStr)
+                            .replace("{hora}", timeStr)
+                            .replace("{negocio}", businessName)
+                        
+                        sendWhatsAppMessage(context, client?.phone ?: "", message)
+                        showWhatsAppConfirmAppt = null
+                    }) {
+                        Text("Sí, enviar nuevamente")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showWhatsAppConfirmAppt = null }) {
+                        Text("Cancelar")
                     }
                 }
             )

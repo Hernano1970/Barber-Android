@@ -114,6 +114,9 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             composable("settings_backup") {
                 BackupSettingsScreen(viewModel, navController)
             }
+            composable("settings_wallets") {
+                WalletSettingsScreen(viewModel, navController)
+            }
             composable("ausencias_read_only") {
                 AusenciasReadOnlyScreen(viewModel, navController)
             }
@@ -172,6 +175,16 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             ) { backStackEntry ->
                 val id = backStackEntry.arguments?.getInt("id") ?: -1
                 EditAppointmentScreen(viewModel, navController, id)
+            }
+            // Collect QR
+            composable(
+                route = "collect_qr/{id}",
+                arguments = listOf(androidx.navigation.navArgument("id") { 
+                    type = androidx.navigation.NavType.IntType
+                })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getInt("id") ?: -1
+                CollectQrScreen(viewModel, navController, id)
             }
         }
     }

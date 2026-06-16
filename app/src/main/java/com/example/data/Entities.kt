@@ -34,3 +34,13 @@ data class Appointment(
     val isPaid: Boolean = false,
     val paymentMethod: String = ""
 )
+
+@Entity(tableName = "wallets")
+data class Wallet(
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String,
+    val alias: String,
+    val cvu: String,
+    val titular: String,
+    val qrImagePath: String
+)

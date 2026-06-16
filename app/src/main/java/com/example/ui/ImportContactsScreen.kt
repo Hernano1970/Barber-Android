@@ -84,6 +84,7 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
     var duplicateWarning by remember { mutableStateOf<String?>(null) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
     var missingPhoneContact by remember { mutableStateOf<PhoneContact?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -166,7 +167,7 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
                                 missingPhoneContact = contact
                             } else {
                                 viewModel.addClient(contact.name, contact.phone, "")
-                                snackbarMessage = "Contacto importado: ${contact.name}"
+                                showSuccessDialog = true
                             }
                         }) {
                             Text("Importar")
@@ -187,12 +188,36 @@ fun ContactsListScreen(padding: PaddingValues, viewModel: MainViewModel, navCont
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.addClient(contact.name, contact.phone, "")
-                    snackbarMessage = "Contacto importado: ${contact.name}"
                     missingPhoneContact = null
+                    showSuccessDialog = true
                 }) { Text("Guardar de Todas Formas", color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = {
                 TextButton(onClick = { missingPhoneContact = null }) { Text("Volver y Completar Teléfono") }
+            }
+        )
+    }
+
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            title = { Text("Contacto importado") },
+            text = { Text("El contacto fue importado correctamente.\n\n¿Desea importar otro contacto?") },
+            confirmButton = {
+                Button(onClick = { 
+                    showSuccessDialog = false
+                    searchQuery = ""
+                }) { 
+                    Text("Sí") 
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showSuccessDialog = false
+                    navController.popBackStack()
+                }) { 
+                    Text("No") 
+                }
             }
         )
     }

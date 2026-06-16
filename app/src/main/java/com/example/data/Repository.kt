@@ -21,6 +21,10 @@ class Repository(private val database: AppDatabase) {
     suspend fun insertAppointment(appointment: Appointment) = database.appointmentDao().insertAppointment(appointment)
     suspend fun deleteAppointment(appointment: Appointment) = database.appointmentDao().deleteAppointment(appointment)
     
+    val allWallets: Flow<List<Wallet>> = database.walletDao().getAllWallets()
+    suspend fun insertWallet(wallet: Wallet) = database.walletDao().insertWallet(wallet)
+    suspend fun deleteWallet(wallet: Wallet) = database.walletDao().deleteWallet(wallet)
+
     fun getAppointmentsForToday(): Flow<List<Appointment>> {
         val (start, end) = getTodayRange()
         return database.appointmentDao().getAppointmentsForDay(start, end)

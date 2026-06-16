@@ -25,8 +25,9 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
+    val scrollState = rememberScrollState()
     Scaffold { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(modifier = Modifier.padding(padding).verticalScroll(scrollState)) {
             ListItem(
                 headlineContent = { Text("Perfil del Negocio") },
                 supportingContent = { Text("Nombre, dirección, teléfono") },
@@ -69,6 +70,14 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
                 modifier = Modifier.clickable { navController.navigate("settings_backup") }
             )
             HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Mis Billeteras") },
+                supportingContent = { Text("Configurar billeteras virtuales para cobros con QR") },
+                leadingContent = { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate("settings_wallets") }
+            )
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -751,6 +760,7 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
 @Composable
 fun WhatsAppSettingsScreen(viewModel: MainViewModel, navController: NavController) {
     var template by remember { mutableStateOf(viewModel.appSettings.whatsappMessageTemplate) }
+    var transferTemplate by remember { mutableStateOf(viewModel.appSettings.whatsappTransferTemplate) }
 
     Scaffold(
         topBar = {
@@ -776,8 +786,22 @@ fun WhatsAppSettingsScreen(viewModel: MainViewModel, navController: NavControlle
             )
             Spacer(modifier = Modifier.height(16.dp))
 
+            Text("Plantilla de Cobro por Transferencia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Puedes usar las variables: {nombre}, {servicio}, {importe}, {billetera}, {alias}, {cvu}, {titular}", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = transferTemplate, 
+                onValueChange = { transferTemplate = it }, 
+                label = { Text("Plantilla de Cobro por Transferencia") }, 
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 6
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
             Button(onClick = {
                 viewModel.appSettings.whatsappMessageTemplate = template
+                viewModel.appSettings.whatsappTransferTemplate = transferTemplate
                 navController.popBackStack()
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Guardar Cambios")
