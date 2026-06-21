@@ -3,6 +3,7 @@ package com.example.ui
 import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.navigation.NavController
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
@@ -40,6 +43,13 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
                 supportingContent = { Text("Apertura, cierre y días de trabajo") },
                 leadingContent = { Icon(Icons.Filled.Schedule, contentDescription = null) },
                 modifier = Modifier.clickable { navController.navigate("settings_hours") }
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Agenda y Turnos") },
+                supportingContent = { Text("Tolerancia para turnos vencidos") },
+                leadingContent = { Icon(Icons.Filled.Event, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate("settings_agenda") }
             )
             HorizontalDivider()
             ListItem(
@@ -88,6 +98,16 @@ fun BusinessProfileScreen(viewModel: MainViewModel, navController: NavController
     var name by remember { mutableStateOf(viewModel.appSettings.businessName) }
     var address by remember { mutableStateOf(viewModel.appSettings.businessAddress) }
     var phone by remember { mutableStateOf(viewModel.appSettings.businessPhone) }
+    var selectedColor by remember { mutableStateOf(viewModel.appSettings.businessColor) }
+
+    val colors = listOf(
+        0xFF6200EE, // Purple / Default (Primary Material 3 fallback or similar deep purple)
+        0xFF1976D2, // Blue
+        0xFF388E3C, // Green
+        0xFFF57C00, // Orange
+        0xFFD32F2F, // Red
+        0xFF000000  // Black
+    )
 
     Scaffold(
         topBar = {
@@ -101,7 +121,7 @@ fun BusinessProfileScreen(viewModel: MainViewModel, navController: NavController
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth()) {
+        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre de la Barbería") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Dirección") }, modifier = Modifier.fillMaxWidth())
@@ -109,8 +129,30 @@ fun BusinessProfileScreen(viewModel: MainViewModel, navController: NavController
             OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono de Contacto") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
 
+            Text("Color Principal", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                colors.forEach { colorVal ->
+                    val color = androidx.compose.ui.graphics.Color(colorVal)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(color)
+                            .clickable { selectedColor = colorVal },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (selectedColor == colorVal) {
+                            Icon(Icons.Filled.Check, contentDescription = "Selected", tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+
             Button(onClick = {
                 viewModel.updateBusinessName(name)
+                viewModel.updateBusinessColor(selectedColor)
                 viewModel.appSettings.businessAddress = address
                 viewModel.appSettings.businessPhone = phone
                 navController.popBackStack()
@@ -202,27 +244,81 @@ fun WorkingHoursScreen(viewModel: MainViewModel, navController: NavController) {
         }
     }
     
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val hasDayChanges = schedules.any { 
+        it.isEnabled.value != (entries[it.index]?.getOrNull(1)?.toBooleanStrictOrNull() ?: (it.index != 0)) 
+    }
+    val hasTimeChanges = schedules.any { 
+        it.startTime.value != (entries[it.index]?.getOrNull(2) ?: "09:00") || 
+        it.endTime.value != (entries[it.index]?.getOrNull(3) ?: "19:00") 
+    }
+    
+    val hasChanges = hasDayChanges || hasTimeChanges
+
+    val handleBack = {
+        if (hasChanges) {
+            showUnsavedDialog = true
+        } else {
+            navController.popBackStack()
+        }
+    }
+
+    BackHandler(enabled = true, onBack = { handleBack() })
+
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("Cambios sin guardar") },
+            text = { 
+                Text(
+                    when {
+                        hasDayChanges && hasTimeChanges -> "Hay modificaciones en los Días y Horarios Laborales.\n¿Desea guardar los cambios?"
+                        hasDayChanges -> "Hay una modificación en los Días Laborales.\n¿Desea guardar los cambios?"
+                        else -> "Hay una modificación en los Horarios Laborales.\n¿Desea guardar los cambios?"
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newMap = schedules.joinToString(",") { 
+                        "${it.index}|${it.isEnabled.value}|${it.startTime.value}|${it.endTime.value}"
+                    }
+                    viewModel.appSettings.workingHoursMap = newMap
+                    Toast.makeText(context, "Cambios guardados correctamente.", Toast.LENGTH_SHORT).show()
+                    showUnsavedDialog = false
+                    navController.popBackStack()
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showUnsavedDialog = false
+                        navController.popBackStack()
+                    }) {
+                        Text("Descartar")
+                    }
+                    TextButton(onClick = { showUnsavedDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Días y Horarios Laborales") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                val newMap = schedules.joinToString(",") { 
-                    "${it.index}|${it.isEnabled.value}|${it.startTime.value}|${it.endTime.value}"
-                }
-                viewModel.appSettings.workingHoursMap = newMap
-                navController.popBackStack()
-            }) {
-                Icon(Icons.Filled.Save, contentDescription = "Guardar")
-            }
         }
     ) { padding ->
         LazyColumn(
@@ -236,6 +332,18 @@ fun WorkingHoursScreen(viewModel: MainViewModel, navController: NavController) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (hasDayChanges || hasTimeChanges) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when {
+                            hasDayChanges && hasTimeChanges -> "⚠ Cambios pendientes en los Días y Horarios Laborales."
+                            hasDayChanges -> "⚠ Cambios pendientes en los Días Laborales."
+                            else -> "⚠ Cambios pendientes en los Horarios Laborales."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
             
@@ -289,6 +397,8 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
     var note by remember { mutableStateOf("") }
     var editingAbsenceId by remember { mutableStateOf<String?>(null) }
     
+    var showDiagnosticAbsence by remember { mutableStateOf<com.example.data.Absence?>(null) }
+    
     var isPartial by remember { mutableStateOf(false) }
     var bloqueoTypeExpanded by remember { mutableStateOf(false) }
     
@@ -313,7 +423,8 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
             context,
             { _, year, month, dayOfMonth ->
                 val c = Calendar.getInstance()
-                c.set(year, month, dayOfMonth)
+                c.set(year, month, dayOfMonth, 0, 0, 0)
+                c.set(Calendar.MILLISECOND, 0)
                 onDateSelected(c.timeInMillis)
             },
             cal.get(Calendar.YEAR),
@@ -626,6 +737,7 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
                                                 viewModel.appSettings.absencesList = newList
                                                 absences = newList
                                                 viewModel.scheduleNotifications()
+                                                showDiagnosticAbsence = finalAbsence
                                                 
                                                 startDate = null
                                                 if (!isPartial) endDate = null
@@ -754,6 +866,72 @@ fun VacationsScreen(viewModel: MainViewModel, navController: NavController) {
             }
         }
     }
+    
+    if (showDiagnosticAbsence != null) {
+        val diag = showDiagnosticAbsence!!
+        
+        var targetTime = diag.start - (viewModel.appSettings.absenceReminderDays * 86400000L)
+        if (viewModel.appSettings.absenceReminderTimeType == "InicioJornada") {
+            val cal = Calendar.getInstance().apply { timeInMillis = targetTime }
+            val parts = viewModel.appSettings.dailyStartReminderTime.split(":")
+            if (parts.size == 2) {
+                cal.set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 8)
+                cal.set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
+                targetTime = cal.timeInMillis
+            }
+        }
+        
+        val isImmediate = targetTime <= System.currentTimeMillis()
+        
+        val dfCal = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val dfAbs = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        
+        AlertDialog(
+            onDismissRequest = { showDiagnosticAbsence = null },
+            title = { Text("Diagnóstico de Programación", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Tipo: ${if (diag.isPartial) "Ausencia Parcial" else "Ausencia Extensa"}")
+                    Text("Fecha: ${dfAbs.format(java.util.Date(diag.start))}")
+                    Text("Anticipación: ${viewModel.appSettings.absenceReminderDays} día(s)")
+                    Text("Método: ${if (viewModel.appSettings.absenceReminderTimeType == "InicioJornada") "Inicio de Jornada (${viewModel.appSettings.dailyStartReminderTime})" else "A las 00:00"}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Notificación anticipada calculada:", fontWeight = FontWeight.Bold)
+                    Text(dfCal.format(java.util.Date(targetTime)))
+                    Text("Estado:", fontWeight = FontWeight.Bold)
+                    if (isImmediate) {
+                        Text("Ejecutada Inmediatamente: La fecha calculada ya había transcurrido.", color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text("Programada exitosamente.", color = MaterialTheme.colorScheme.primary)
+                    }
+                    
+                    if (diag.isPartial) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val parts = diag.startTime.split(":")
+                        if (parts.size == 2) {
+                            val cal = Calendar.getInstance().apply {
+                                timeInMillis = diag.start
+                                set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 0)
+                                set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
+                            }
+                            val partialTime = cal.timeInMillis - (60 * 60 * 1000L) // 1 hour before
+                            val pIsImmediate = partialTime <= System.currentTimeMillis()
+                            
+                            Text("Aviso Próximo (1 hr antes):", fontWeight = FontWeight.Bold)
+                            Text(dfCal.format(java.util.Date(partialTime)))
+                            Text("Estado:", fontWeight = FontWeight.Bold)
+                            if (pIsImmediate) {
+                                Text("La fecha calculada ya había transcurrido.", color = MaterialTheme.colorScheme.error)
+                            } else {
+                                Text("Programada exitosamente.", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showDiagnosticAbsence = null }) { Text("Aceptar") } }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -762,12 +940,70 @@ fun WhatsAppSettingsScreen(viewModel: MainViewModel, navController: NavControlle
     var template by remember { mutableStateOf(viewModel.appSettings.whatsappMessageTemplate) }
     var transferTemplate by remember { mutableStateOf(viewModel.appSettings.whatsappTransferTemplate) }
 
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val hasAppointmentTemplateChanges = template != viewModel.appSettings.whatsappMessageTemplate
+    val hasTransferTemplateChanges = transferTemplate != viewModel.appSettings.whatsappTransferTemplate
+    
+    val hasChanges = hasAppointmentTemplateChanges || hasTransferTemplateChanges
+
+    val handleBack = {
+        if (hasChanges) {
+            showUnsavedDialog = true
+        } else {
+            navController.popBackStack()
+        }
+    }
+
+    BackHandler(enabled = true, onBack = { handleBack() })
+
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("Cambios sin guardar") },
+            text = { 
+                Text(
+                    when {
+                        hasAppointmentTemplateChanges && hasTransferTemplateChanges -> "Hay modificaciones en las Plantillas de Confirmación de Turno y Cobro por Transferencia.\n¿Desea guardar los cambios?"
+                        hasAppointmentTemplateChanges -> "Hay modificaciones en la Plantilla de Confirmación de Turno.\n¿Desea guardar los cambios?"
+                        else -> "Hay modificaciones en la Plantilla de Cobro por Transferencia.\n¿Desea guardar los cambios?"
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.appSettings.whatsappMessageTemplate = template
+                    viewModel.appSettings.whatsappTransferTemplate = transferTemplate
+                    Toast.makeText(context, "Plantillas guardadas correctamente.", Toast.LENGTH_SHORT).show()
+                    showUnsavedDialog = false
+                    navController.popBackStack()
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showUnsavedDialog = false
+                        navController.popBackStack()
+                    }) {
+                        Text("Descartar")
+                    }
+                    TextButton(onClick = { showUnsavedDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Integración de WhatsApp") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -775,6 +1011,18 @@ fun WhatsAppSettingsScreen(viewModel: MainViewModel, navController: NavControlle
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
+            if (hasAppointmentTemplateChanges || hasTransferTemplateChanges) {
+                Text(
+                    text = when {
+                        hasAppointmentTemplateChanges && hasTransferTemplateChanges -> "⚠ Cambios pendientes en ambas Plantillas de WhatsApp."
+                        hasAppointmentTemplateChanges -> "⚠ Cambios pendientes en la Plantilla de Confirmación de Turno."
+                        else -> "⚠ Cambios pendientes en la Plantilla de Cobro por Transferencia."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             Text("Plantilla del mensaje. Puedes usar las variables: {nombre}, {fecha}, {hora}, {negocio}", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
@@ -798,13 +1046,113 @@ fun WhatsAppSettingsScreen(viewModel: MainViewModel, navController: NavControlle
                 minLines = 6
             )
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
 
-            Button(onClick = {
-                viewModel.appSettings.whatsappMessageTemplate = template
-                viewModel.appSettings.whatsappTransferTemplate = transferTemplate
-                navController.popBackStack()
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("Guardar Cambios")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AgendaSettingsScreen(viewModel: MainViewModel, navController: NavController) {
+    var toleranceOption by remember { mutableStateOf(viewModel.appSettings.agendaToleranceMinutes) }
+    
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val hasChanges = toleranceOption != viewModel.appSettings.agendaToleranceMinutes
+
+    val handleBack = {
+        if (hasChanges) {
+            showUnsavedDialog = true
+        } else {
+            navController.popBackStack()
+        }
+    }
+
+    BackHandler(enabled = true, onBack = { handleBack() })
+
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("Cambios sin guardar") },
+            text = { Text("Hay modificaciones en la configuración de Tolerancia para Turnos Vencidos.\n¿Desea guardar los cambios?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.appSettings.agendaToleranceMinutes = toleranceOption
+                    Toast.makeText(context, "Configuración guardada correctamente.", Toast.LENGTH_SHORT).show()
+                    showUnsavedDialog = false
+                    navController.popBackStack()
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showUnsavedDialog = false
+                        navController.popBackStack()
+                    }) {
+                        Text("Descartar")
+                    }
+                    TextButton(onClick = { showUnsavedDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Agenda y Turnos") },
+                navigationIcon = {
+                    IconButton(onClick = { handleBack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
+            
+            if (hasChanges) {
+                Text(
+                    text = "⚠ Cambios pendientes en la configuración de Tolerancia para Turnos Vencidos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            Text("Tolerancia para asignar turnos vencidos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Permite asignar el último horario iniciado durante algunos minutos después de su comienzo.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val options = listOf(
+                0 to "Desactivada",
+                5 to "5 minutos",
+                10 to "10 minutos",
+                15 to "15 minutos",
+                20 to "20 minutos",
+                30 to "30 minutos"
+            )
+
+            options.forEach { (value, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { toleranceOption = value }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = toleranceOption == value,
+                        onClick = { toleranceOption = value }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = label, style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
     }

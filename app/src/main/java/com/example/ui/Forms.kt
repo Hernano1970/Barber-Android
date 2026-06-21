@@ -413,7 +413,10 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
     var clientExpanded by remember { mutableStateOf(false) }
     var serviceExpanded by remember { mutableStateOf(false) }
 
-    val calendar = Calendar.getInstance()
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
     if (initialTimestamp > 0) {
         calendar.timeInMillis = initialTimestamp
     }
@@ -562,7 +565,8 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
             Spacer(modifier = Modifier.height(16.dp))
             
             val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "ES"))
-            val isPastDate = selectedDate < (System.currentTimeMillis() - 60_000) // 1 minute leeway
+            val toleranceMillis = viewModel.appSettings.agendaToleranceMinutes * 60 * 1000L
+            val isPastDate = selectedDate < (System.currentTimeMillis() - toleranceMillis)
 
             OutlinedTextField(
                 value = sdf.format(Date(selectedDate)),
@@ -634,6 +638,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                 val requestedEnd = requestedStart + (durationMins * 60 * 1000)
 
                 val overlappingAppt = allAppointments.find { a ->
+                    if (a.status == "Eliminado") return@find false
                     val s = services.find { it.id == a.serviceId }
                     val dur = s?.durationMinutes ?: 30
                     val aStart = a.dateTimestamp
@@ -642,7 +647,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                 }
 
                 if (overlappingAppt != null) {
-                    val nextAppt = allAppointments.filter { it.dateTimestamp >= requestedStart }
+                    val nextAppt = allAppointments.filter { it.dateTimestamp >= requestedStart && it.status != "Eliminado" }
                                                   .minByOrNull { it.dateTimestamp }
                     if (nextAppt != null && nextAppt.dateTimestamp > requestedStart) {
                         val availableMins = (nextAppt.dateTimestamp - requestedStart) / (60 * 1000)
@@ -659,7 +664,7 @@ fun AddAppointmentScreen(viewModel: MainViewModel, navController: NavController,
                 }.timeInMillis
 
                 val duplicate = if (!isCasualClient && selectedClientId != null) {
-                    allAppointments.find { it.clientId == selectedClientId && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
+                    allAppointments.find { it.clientId == selectedClientId && it.status != "Eliminado" && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
                 } else null
 
                 if (duplicate != null) {
@@ -757,7 +762,10 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
     var clientExpanded by remember { mutableStateOf(false) }
     var serviceExpanded by remember { mutableStateOf(false) }
 
-    val calendar = Calendar.getInstance()
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
     if (appt != null) {
         calendar.timeInMillis = appt.dateTimestamp
     }
@@ -873,7 +881,8 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "ES"))
-                val isPastDate = selectedDate < (System.currentTimeMillis() - 60_000) // 1 minute leeway
+                val toleranceMillis = viewModel.appSettings.agendaToleranceMinutes * 60 * 1000L
+                val isPastDate = selectedDate < (System.currentTimeMillis() - toleranceMillis)
 
                 OutlinedTextField(
                     value = sdf.format(Date(selectedDate)),
@@ -971,6 +980,7 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
 
                     val overlappingAppt = appointments.find { a ->
                         if (a.id == appt.id) return@find false // ignora el mismo turno
+                        if (a.status == "Eliminado") return@find false
                         val s = services.find { it.id == a.serviceId }
                         val dur = s?.durationMinutes ?: 30
                         val aStart = a.dateTimestamp
@@ -979,7 +989,7 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                     }
 
                     if (overlappingAppt != null) {
-                        val nextAppt = appointments.filter { it.id != appt.id && it.dateTimestamp >= requestedStart }
+                        val nextAppt = appointments.filter { it.id != appt.id && it.dateTimestamp >= requestedStart && it.status != "Eliminado" }
                                                       .minByOrNull { it.dateTimestamp }
                         if (nextAppt != null && nextAppt.dateTimestamp > requestedStart) {
                             val availableMins = (nextAppt.dateTimestamp - requestedStart) / (60 * 1000)
@@ -996,7 +1006,7 @@ fun EditAppointmentScreen(viewModel: MainViewModel, navController: NavController
                     }.timeInMillis
 
                     val duplicate = if (selectedClientId != null) {
-                        appointments.find { it.id != appt.id && it.clientId == selectedClientId && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
+                        appointments.find { it.id != appt.id && it.clientId == selectedClientId && it.status != "Eliminado" && (it.dateTimestamp >= todayMidnight || !it.isPaid) }
                     } else null
 
                     if (duplicate != null) {

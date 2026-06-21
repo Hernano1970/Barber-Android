@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.map
 import java.text.Collator
 import java.util.Locale
 
+import kotlinx.coroutines.flow.first
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val repository = Repository(database)
@@ -70,22 +72,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _businessName = kotlinx.coroutines.flow.MutableStateFlow(appSettings.businessName)
     val businessName: StateFlow<String> = _businessName
 
+    private val _businessColor = kotlinx.coroutines.flow.MutableStateFlow(appSettings.businessColor)
+    val businessColor: StateFlow<Long> = _businessColor
+
     fun updateBusinessName(newName: String) {
         appSettings.businessName = newName
         _businessName.value = newName
+    }
+
+    fun updateBusinessColor(newColor: Long) {
+        appSettings.businessColor = newColor
+        _businessColor.value = newColor
     }
 
     // Example Initial Data
     init {
         viewModelScope.launch(Dispatchers.IO) {
             com.example.BackupHelper.checkAutoBackup(getApplication())
-            // Uncomment to populate initial data for testing
-            /*
-            if (repository.allServices.first().isEmpty()) {
-                repository.insertService(Service(name = "Corte Clásico", price = 15.0, durationMinutes = 30, description = "Corte a tijera o máquina tradicional."))
-                repository.insertService(Service(name = "Corte + Barba", price = 25.0, durationMinutes = 45, description = "Corte y perfilado de barba."))
+            
+            if (!appSettings.firstRunCompleted) {
+                // Check if there's any data
+                val clientsCount = repository.allClients.first().size
+                val appointmentsCount = repository.allAppointments.first().size
+                val servicesCount = repository.allServices.first().size
+                val settingsChanged = appSettings.businessAddress.isNotEmpty() || appSettings.absencesList.isNotEmpty()
+                
+                if (clientsCount > 0 || appointmentsCount > 0 || servicesCount > 0 || settingsChanged) {
+                    appSettings.cleanInstallDetected = false
+                    appSettings.restoredDataOrigin = "Datos posiblemente restaurados por Android"
+                } else {
+                    appSettings.cleanInstallDetected = true
+                    appSettings.restoredDataOrigin = "Datos creados manualmente"
+                }
+                appSettings.firstRunCompleted = true
             }
-            */
         }
     }
 

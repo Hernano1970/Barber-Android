@@ -22,6 +22,10 @@ object NotificationHelper {
 
 
         CoroutineScope(Dispatchers.IO).launch {
+            appSettings.notificationLogsList = appSettings.notificationLogsList.filterNot { 
+                it.status == "Programada" && !it.type.startsWith("Prueba")
+            }
+            
             val db = AppDatabase.getDatabase(context)
             val appointments = db.appointmentDao().getAllAppointments().first()
             val _services = db.serviceDao().getActiveServices().first()
@@ -60,6 +64,7 @@ object NotificationHelper {
                         set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 8)
                         set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
                         set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
                     }
                     if (cal.timeInMillis < now) cal.add(Calendar.DAY_OF_YEAR, 1)
 
@@ -82,6 +87,7 @@ object NotificationHelper {
                         set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 20)
                         set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
                         set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
                     }
                     if (cal.timeInMillis < now) cal.add(Calendar.DAY_OF_YEAR, 1)
 
@@ -97,14 +103,40 @@ object NotificationHelper {
 
             // 4. Absences and Blocks
             appSettings.absencesList.filter { it.end + 86400000L > now }.forEach { absence ->
+                if (!appSettings.absenceNotificationsEnabled) {
+                    val intent = Intent(context, NotificationReceiver::class.java).apply {
+                        action = "ABSENCE_REMINDER_${absence.id.hashCode()}"
+                    }
+                    cancelAlarm(context, alarmManager, intent, absence.id.hashCode())
+                    
+                    if (absence.isPartial) {
+                        val partialIntent = Intent(context, NotificationReceiver::class.java).apply {
+                            action = "PARTIAL_ABSENCE_${absence.id.hashCode() + 1}"
+                        }
+                        cancelAlarm(context, alarmManager, partialIntent, absence.id.hashCode() + 1)
+                    }
+                    return@forEach
+                }
                 // Extensive absence
                 var targetTime = absence.start - (appSettings.absenceReminderDays * 86400000L)
+                val cal = Calendar.getInstance().apply { timeInMillis = targetTime }
+                
                 if (appSettings.absenceReminderTimeType == "InicioJornada") {
-                    val cal = Calendar.getInstance().apply { timeInMillis = targetTime }
                     val parts = appSettings.dailyStartReminderTime.split(":")
-                    if (parts.size == 2) {
+                    if (parts.size >= 2) {
                         cal.set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 8)
                         cal.set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
+                        cal.set(Calendar.SECOND, 0)
+                        cal.set(Calendar.MILLISECOND, 0)
+                        targetTime = cal.timeInMillis
+                    }
+                } else {
+                    val parts = appSettings.absenceReminderTimeType.split(":")
+                    if (parts.size >= 2) {
+                        cal.set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 0)
+                        cal.set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
+                        cal.set(Calendar.SECOND, 0)
+                        cal.set(Calendar.MILLISECOND, 0)
                         targetTime = cal.timeInMillis
                     }
                 }
@@ -121,15 +153,8 @@ object NotificationHelper {
                         putExtra("absenceId", absence.id)
                     }
                     scheduleExactAlarm(context, alarmManager, intent, targetTime, absence.id.hashCode())
-                } else if (!appSettings.isAbsenceNotified(absence.id)) {
-                    val intent = Intent(context, NotificationReceiver::class.java).apply {
-                        action = "ABSENCE_REMINDER_${absence.id.hashCode()}"
-                        putExtra("title", typeStr)
-                        putExtra("message", "A partir del ${df.format(java.util.Date(absence.start))}.")
-                        putExtra("notificationId", absence.id.hashCode())
-                        putExtra("absenceId", absence.id)
-                    }
-                    context.sendBroadcast(intent)
+                } else {
+                    // Silently mark as notified so we never trigger "Ejecutada inmediatamente" for passed alarms
                     appSettings.setAbsenceNotified(absence.id)
                 }
                 
@@ -141,6 +166,8 @@ object NotificationHelper {
                             timeInMillis = absence.start
                             set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: 0)
                             set(Calendar.MINUTE, parts[1].toIntOrNull() ?: 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
                         }
                         val partialTime = cal.timeInMillis - (60 * 60 * 1000L) // 1 hour before
                         if (partialTime > now) {
@@ -188,7 +215,34 @@ object NotificationHelper {
         }
     }
 
+    private fun cancelAlarm(context: Context, alarmManager: AlarmManager, intent: Intent, reqCode: Int) {
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            reqCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+        
+        val actionStr = intent.action ?: ""
+        if (actionStr.isNotEmpty()) {
+            val appSettings = AppSettings(context)
+            val updatedLogs = appSettings.notificationLogsList.filterNot { 
+                it.actionId == actionStr && it.status == "Programada" 
+            }
+            if (updatedLogs.size != appSettings.notificationLogsList.size) {
+                appSettings.notificationLogsList = updatedLogs
+            }
+        }
+    }
+
     private fun scheduleExactAlarm(context: Context, alarmManager: AlarmManager, intent: Intent, time: Long, reqCode: Int) {
+        val appSettings = AppSettings(context)
+        val typeStr = intent.getStringExtra("title") ?: "Alarma"
+        val actionStr = intent.action ?: ""
+        
+        intent.putExtra("scheduledTime", time)
+        
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             reqCode,
@@ -201,7 +255,28 @@ object NotificationHelper {
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, time, pendingIntent)
             }
+            val currentLogs = appSettings.notificationLogsList.filterNot { 
+                it.actionId == actionStr && it.status == "Programada" 
+            }
+            
+            appSettings.notificationLogsList = currentLogs + com.example.data.NotificationLog(
+                scheduledTime = time,
+                type = typeStr,
+                status = "Programada",
+                actionId = actionStr
+            )
         } catch (e: SecurityException) {
+            val currentLogs = appSettings.notificationLogsList.filterNot { 
+                it.actionId == actionStr && it.status == "Programada" 
+            }
+            
+            appSettings.notificationLogsList = currentLogs + com.example.data.NotificationLog(
+                scheduledTime = time,
+                type = typeStr,
+                status = "Error",
+                errorMessage = "Permiso de alarma exacta denegado.",
+                actionId = actionStr
+            )
             // Fallback to inexact if exact is denied
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, pendingIntent)
         }

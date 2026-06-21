@@ -341,6 +341,114 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                 }
                 Spacer(modifier = Modifier.height(32.dp))
                 
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                val isBackupAllowed = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_ALLOW_BACKUP) != 0
+                
+                Text("Respaldo de Android", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                if (isBackupAllowed) {
+                    Text("Estado actual: Activado", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+                    Text("Android puede realizar copias de seguridad automáticas y restaurar datos desde la cuenta de Google si dicha función está habilitada en el dispositivo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Estado actual: Desactivado", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
+                    Text("BarberApp tiene deshabilitado el sistema Auto Backup de Android. Android no realizará copias de seguridad automáticas ni restaurará datos desde la cuenta de Google. La migración de información debe realizarse mediante los respaldos manuales de BarberApp.\n\nNota: Los archivos data_extraction_rules.xml y backup_rules.xml presentes en el proyecto no tienen efecto para copias en la nube mientras esta función esté desactivada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Información de Respaldo Local", fontWeight = FontWeight.Bold)
+                Text("Carpeta actual: $displayLocation", style = MaterialTheme.typography.bodySmall)
+                Text("Cantidad de respaldos existentes: ${localBackups.size}", style = MaterialTheme.typography.bodySmall)
+                val lastBackupTime = if (localBackups.isNotEmpty()) SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(localBackups.first().lastModified())) else "Ninguno"
+                Text("Último respaldo: $lastBackupTime", style = MaterialTheme.typography.bodySmall)
+                val totalSize = localBackups.sumOf { it.length() }
+                Text("Tamaño total ocupado: ${totalSize / 1024} KB", style = MaterialTheme.typography.bodySmall)
+                Text("Estado automático: ${if (autoBackup == "Desactivado") "Inactivo" else "Activo ($autoBackup)"}", style = MaterialTheme.typography.bodySmall)
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Herramientas de Diagnóstico", fontWeight = FontWeight.Bold)
+                
+                var showDiagnosisDialog by remember { mutableStateOf(false) }
+                Button(onClick = { showDiagnosisDialog = true }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text("Verificar Datos Restaurados")
+                }
+                
+                if (showDiagnosisDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDiagnosisDialog = false },
+                        title = { Text("Diagnóstico de Datos") },
+                        text = {
+                            Column {
+                                Text("Instalación Limpia: ${if (appSettings.cleanInstallDetected) "No" else "Sí"}", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Origen probable de los datos:", fontWeight = FontWeight.Bold)
+                                Text(appSettings.restoredDataOrigin)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                if (appSettings.cleanInstallDetected) {
+                                    Text("Nivel de confianza: Alto", color = MaterialTheme.colorScheme.primary)
+                                } else {
+                                    Text("La aplicación inició como una instalación limpia.", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showDiagnosisDialog = false }) { Text("Cerrar") }
+                        }
+                    )
+                }
+                
+                var showWipeConfirmDialog by remember { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = { showWipeConfirmDialog = true }, 
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Filled.Warning, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Modo Instalación Limpia")
+                }
+                
+                if (showWipeConfirmDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showWipeConfirmDialog = false },
+                        title = { Text("Modo Instalación Limpia") },
+                        text = { Text("¿Estás seguro que deseas eliminar TODOS los clientes, turnos, servicios, estadísticas y configuraciones? Esta herramienta es sólo para pruebas.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val db = com.example.data.AppDatabase.getDatabase(context)
+                                    db.clearAllTables()
+                                    
+                                    appSettings.absencesList = emptyList()
+                                    appSettings.notificationLogsList = emptyList()
+                                    appSettings.cleanInstallDetected = false
+                                    appSettings.firstRunCompleted = false
+                                    appSettings.restoredDataOrigin = "Datos creados manualmente"
+                                    
+                                    backupsDir.listFiles()?.forEach { it.delete() }
+                                    
+                                    withContext(Dispatchers.Main) {
+                                        refreshBackups()
+                                        showWipeConfirmDialog = false
+                                        Toast.makeText(context, "Instalación limpia completada.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }) {
+                                Text("Eliminar Todo", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showWipeConfirmDialog = false }) { Text("Cancelar") }
+                        }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text("Historial de respaldos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 

@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
@@ -50,7 +52,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
     val parcialesCount = absencesList.count { it.isPartial }
     val hasAttentionAbsence = absencesList.any { it.start <= todayStart + 7 * 24 * 60 * 60 * 1000L }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("Panel de Control", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -60,6 +62,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                 value = todayAppointments.size.toString(),
                 icon = Icons.Filled.CalendarToday,
                 modifier = Modifier.weight(1f),
+                iconTint = androidx.compose.ui.graphics.Color(0xFF2196F3),
                 onClick = { navController.navigate("upcoming_appointments") }
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -67,7 +70,8 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                 title = "Total Clientes",
                 value = clients.count { it.isPermanent }.toString(),
                 icon = Icons.Filled.People,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                iconTint = androidx.compose.ui.graphics.Color(0xFF4CAF50)
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -76,7 +80,8 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                 title = "Servicios Activos",
                 value = activeServices.size.toString(),
                 icon = Icons.Filled.DesignServices,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                iconTint = androidx.compose.ui.graphics.Color(0xFF9C27B0)
             )
              Spacer(modifier = Modifier.width(16.dp))
              StatCard(
@@ -84,6 +89,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                 value = "$${"%.0f".format(todayIncome)}",
                 icon = Icons.Filled.BarChart,
                 modifier = Modifier.weight(1f),
+                iconTint = androidx.compose.ui.graphics.Color(0xFFFF9800),
                 onClick = { navController.navigate("statistics") }
             )
         }
@@ -100,7 +106,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
                 Box(modifier = Modifier.padding(16.dp)) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.EventBusy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Filled.EventBusy, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFF44336))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(titleText, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (hasAttentionAbsence) {
@@ -120,15 +126,60 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Notifications section
+            NotificationQuickAction(
+                icon = Icons.Filled.Notifications,
+                label = "Turnos",
+                isActive = viewModel.appSettings.turnReminderEnabled,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF2196F3),
+                onClick = { navController.navigate("settings_notifications") }
+            )
+            NotificationQuickAction(
+                icon = Icons.Filled.WbSunny,
+                label = "Jornada",
+                isActive = viewModel.appSettings.dailyStartReminderEnabled,
+                activeColor = androidx.compose.ui.graphics.Color(0xFFFF9800),
+                onClick = { navController.navigate("settings_notifications") }
+            )
+            NotificationQuickAction(
+                icon = Icons.Filled.EventBusy,
+                label = "Ausencias",
+                isActive = viewModel.appSettings.absenceNotificationsEnabled,
+                activeColor = androidx.compose.ui.graphics.Color(0xFFF44336),
+                onClick = { navController.navigate("settings_notifications") }
+            )
+            NotificationQuickAction(
+                icon = Icons.Filled.ListAlt,
+                label = "Resumen",
+                isActive = viewModel.appSettings.dailySummaryEnabled,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                onClick = { navController.navigate("settings_notifications") }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
         Text("Accesos Rápidos", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            QuickActionButton(icon = Icons.Filled.People, label = "Clientes") {
+            QuickActionButton(
+                icon = Icons.Filled.People,
+                label = "Clientes",
+                color = androidx.compose.ui.graphics.Color(0xFF2196F3)
+            ) {
                 navController.navigate("clients")
             }
-            QuickActionButton(icon = Icons.Filled.ContentCut, label = "Servicios") {
+            QuickActionButton(
+                icon = Icons.Filled.ContentCut,
+                label = "Servicios",
+                color = androidx.compose.ui.graphics.Color(0xFF9C27B0)
+            ) {
                 navController.navigate("services")
             }
         }
@@ -209,22 +260,48 @@ fun UpcomingAppointmentsScreen(viewModel: MainViewModel, navController: NavContr
 }
 
 @Composable
-fun QuickActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+fun NotificationQuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, isActive: Boolean, activeColor: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        FloatingActionButton(onClick = onClick, containerColor = MaterialTheme.colorScheme.secondaryContainer) {
-            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isActive) activeColor else androidx.compose.ui.graphics.Color.Gray,
+                modifier = Modifier.size(28.dp)
+            )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall)
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+fun QuickActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .clickable { onClick() }
+            .width(140.dp)
+            .height(80.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, iconTint: androidx.compose.ui.graphics.Color? = null, onClick: (() -> Unit)? = null) {
     val clickModifier = if (onClick != null) Modifier.clickable { onClick() } else Modifier
     Card(modifier = modifier.then(clickModifier), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            Icon(icon, contentDescription = null, tint = iconTint ?: MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(title, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -547,7 +624,10 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                         val slotEnd = slotStart.clone() as Calendar
                         slotEnd.add(Calendar.MINUTE, 15) // Check if the 15-min slot is occupied
 
-                        val isPastSlot = slotStart.timeInMillis < Calendar.getInstance().timeInMillis
+                        val toleranceMillis = viewModel.appSettings.agendaToleranceMinutes * 60 * 1000L
+                        val currentMillis = Calendar.getInstance().timeInMillis
+                        val isPastSlot = (slotStart.timeInMillis + toleranceMillis) < currentMillis
+                        val isByTolerance = slotStart.timeInMillis < currentMillis && !isPastSlot
 
                         val overlappingBlocked = blockedBlocks.find { block -> 
                             block.first < slotEnd.timeInMillis && block.second > slotStart.timeInMillis 
@@ -599,17 +679,27 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                                     }
                                 } else if (apptsInSlot.isEmpty()) {
                                     Card(
-                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isPastSlot) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                                                              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                         )
                                     ) {
-                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = if (isPastSlot) "No Disponible" else "+ Disponible", 
-                                                color = if (isPastSlot) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                            )
+                                        Box(modifier = Modifier.fillMaxSize().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                    text = if (isPastSlot) "No Disponible" else "+ Disponible", 
+                                                    color = if (isPastSlot) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                                )
+                                                if (isByTolerance) {
+                                                    Text(
+                                                        text = "⚠ Disponible por tolerancia",
+                                                        color = MaterialTheme.colorScheme.tertiary,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 } else {

@@ -26,8 +26,20 @@ class NotificationReceiver : BroadcastReceiver() {
         var title = intent.getStringExtra("title") ?: "BarberApp"
         var message = intent.getStringExtra("message") ?: ""
         val notificationId = intent.getIntExtra("notificationId", System.currentTimeMillis().toInt())
+        val isTest = intent.getBooleanExtra("isTest", false)
+        val scheduledTime = intent.getLongExtra("scheduledTime", 0L)
 
         val now = System.currentTimeMillis()
+        
+        if (isTest || intent.action?.contains("TEST") == true) {
+            appSettings.notificationLogsList = appSettings.notificationLogsList + com.example.data.NotificationLog(
+                scheduledTime = scheduledTime,
+                executedTime = now,
+                type = title,
+                status = "Disparada"
+            )
+        }
+
         val pendingResult = goAsync()
         kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
@@ -35,6 +47,18 @@ class NotificationReceiver : BroadcastReceiver() {
                     com.example.BackupHelper.createBackup(context)
                     com.example.NotificationHelper.scheduleAll(context)
                     return@launch
+                }
+
+                if (intent.action?.startsWith("TURN_REMINDER_") == true || intent.getIntExtra("appointmentId", -1) != -1) {
+                    if (!appSettings.turnReminderEnabled && !isTest) return@launch
+                }
+
+                if (actionType == "daily_start" || intent.action == "DAILY_START_10001") {
+                    if (!appSettings.dailyStartReminderEnabled && !isTest) return@launch
+                }
+
+                if (actionType == "daily_summary" || intent.action == "DAILY_SUMMARY_10002") {
+                    if (!appSettings.dailySummaryEnabled && !isTest) return@launch
                 }
 
                 if (actionType == "daily_start" || actionType == "daily_summary") {
@@ -63,45 +87,73 @@ class NotificationReceiver : BroadcastReceiver() {
 
                 // Check if silent mode is active
                 if (appSettings.silentModeUntil > now) {
+                    if (isTest || intent.action?.contains("TEST") == true) {
+                        val currentList = appSettings.notificationLogsList.filterNot { 
+                            it.actionId == (intent.action ?: "") && it.status == "Programada" 
+                        }
+                        appSettings.notificationLogsList = currentList + com.example.data.NotificationLog(
+                            scheduledTime = scheduledTime,
+                            executedTime = now,
+                            type = title,
+                            status = "Error: Modo Silencioso"
+                        )
+                    }
                     return@launch
                 }
 
-                // Verify if absence still exists
                 val absenceId = intent.getStringExtra("absenceId")
-                if (absenceId != null) {
-                    val exists = appSettings.absencesList.any { it.id == absenceId }
-                    if (!exists) return@launch
-                } else if (intent.action?.startsWith("ABSENCE_REMINDER_") == true) {
-                    val reqCodeStr = intent.action?.removePrefix("ABSENCE_REMINDER_")
-                    val reqCode = reqCodeStr?.toIntOrNull()
-                    if (reqCode != null) {
-                        val exists = appSettings.absencesList.any { it.id.hashCode() == reqCode }
+                val isTestAbsence = isTest || intent.action?.contains("TEST") == true || absenceId?.startsWith("test") == true
+
+                if (!isTestAbsence) {
+                    // Verify if absence still exists
+                    if (absenceId != null) {
+                        val exists = appSettings.absencesList.any { it.id == absenceId }
                         if (!exists) return@launch
+                    } else if (intent.action?.startsWith("ABSENCE_REMINDER_") == true) {
+                        val reqCodeStr = intent.action?.removePrefix("ABSENCE_REMINDER_")
+                        val reqCode = reqCodeStr?.toIntOrNull()
+                        if (reqCode != null) {
+                            val exists = appSettings.absencesList.any { it.id.hashCode() == reqCode }
+                            if (!exists) return@launch
+                        }
+                    } else if (intent.action?.startsWith("PARTIAL_ABSENCE_") == true) {
+                        val reqCodeStr = intent.action?.removePrefix("PARTIAL_ABSENCE_")
+                        val reqCode = reqCodeStr?.toIntOrNull()
+                        if (reqCode != null) {
+                            val exists = appSettings.absencesList.any { (it.id.hashCode() + 1) == reqCode }
+                            if (!exists) return@launch
+                        }
                     }
-                } else if (intent.action?.startsWith("PARTIAL_ABSENCE_") == true) {
-                    val reqCodeStr = intent.action?.removePrefix("PARTIAL_ABSENCE_")
-                    val reqCode = reqCodeStr?.toIntOrNull()
-                    if (reqCode != null) {
-                        val exists = appSettings.absencesList.any { (it.id.hashCode() + 1) == reqCode }
-                        if (!exists) return@launch
+
+                    // Verify if appointment still exists and is correct status
+                    val appointmentId = intent.getIntExtra("appointmentId", -1)
+                    if (appointmentId != -1) {
+                        val db = com.example.data.AppDatabase.getDatabase(context)
+                        val appt = db.appointmentDao().getAllAppointments().first().find { it.id == appointmentId }
+                        if (appt == null || appt.status != "Pendiente") return@launch
+                    } else if (intent.action?.startsWith("TURN_REMINDER_") == true) {
+                        val reqCodeStr = intent.action?.removePrefix("TURN_REMINDER_")
+                        val reqCode = reqCodeStr?.toIntOrNull()
+                        if (reqCode != null) {
+                            val originalApptId = reqCode - 10000
+                            val db = com.example.data.AppDatabase.getDatabase(context)
+                            val appt = db.appointmentDao().getAllAppointments().first().find { it.id == originalApptId }
+                            if (appt == null || appt.status != "Pendiente") return@launch
+                        }
                     }
                 }
 
-                // Verify if appointment still exists and is correct status
-                val appointmentId = intent.getIntExtra("appointmentId", -1)
-                if (appointmentId != -1) {
-                    val db = com.example.data.AppDatabase.getDatabase(context)
-                    val appt = db.appointmentDao().getAllAppointments().first().find { it.id == appointmentId }
-                    if (appt == null || appt.status != "Pendiente") return@launch
-                } else if (intent.action?.startsWith("TURN_REMINDER_") == true) {
-                    val reqCodeStr = intent.action?.removePrefix("TURN_REMINDER_")
-                    val reqCode = reqCodeStr?.toIntOrNull()
-                    if (reqCode != null) {
-                        val originalApptId = reqCode - 10000
-                        val db = com.example.data.AppDatabase.getDatabase(context)
-                        val appt = db.appointmentDao().getAllAppointments().first().find { it.id == originalApptId }
-                        if (appt == null || appt.status != "Pendiente") return@launch
+                if (isTestAbsence) {
+                    val currentList = appSettings.notificationLogsList.filterNot { 
+                        it.actionId == (intent.action ?: "") && it.status == "Programada" 
                     }
+                    appSettings.notificationLogsList = currentList + com.example.data.NotificationLog(
+                        scheduledTime = scheduledTime,
+                        executedTime = now,
+                        type = title,
+                        status = "Receiver Ejecutado",
+                        actionId = intent.action ?: ""
+                    )
                 }
 
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -149,7 +201,36 @@ class NotificationReceiver : BroadcastReceiver() {
                     builder.setVibrate(longArrayOf(0L))
                 }
 
-                notificationManager.notify(notificationId, builder.build())
+                val displayId = System.currentTimeMillis().toInt()
+                notificationManager.notify(displayId, builder.build())
+                
+                if (!isTestAbsence && absenceId != null && intent.action?.startsWith("ABSENCE_REMINDER_") == true) {
+                    appSettings.setAbsenceNotified(absenceId)
+                }
+                
+                val currentList = appSettings.notificationLogsList.filterNot { 
+                    it.actionId == (intent.action ?: "") && it.status == "Programada" 
+                }
+                appSettings.notificationLogsList = currentList + com.example.data.NotificationLog(
+                    scheduledTime = scheduledTime,
+                    executedTime = now,
+
+                    type = title,
+                    status = "Mostrada",
+                    actionId = intent.action ?: ""
+                )
+            } catch (e: Exception) {
+                val currentList = appSettings.notificationLogsList.filterNot { 
+                    it.actionId == (intent.action ?: "") && it.status == "Programada" 
+                }
+                appSettings.notificationLogsList = currentList + com.example.data.NotificationLog(
+                    scheduledTime = intent.getLongExtra("scheduledTime", 0L),
+                    executedTime = System.currentTimeMillis(),
+                    type = title,
+                    status = "Error",
+                    errorMessage = e.message ?: "Error desconocido",
+                    actionId = intent.action ?: ""
+                )
             } finally {
                 pendingResult.finish()
             }

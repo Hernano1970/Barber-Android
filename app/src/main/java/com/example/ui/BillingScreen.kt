@@ -77,6 +77,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
     }
 
     val filteredList = allAppointments.filter { appt ->
+        if (appt.status == "Eliminado") return@filter false
         when (selectedTab) {
             "Pagados" -> appt.isPaid
             "Deudores" -> !appt.isPaid
@@ -391,16 +392,17 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                                     status = "Pagado"
                                 ))
                                 paymentDialogAppt = null
-                            }, modifier = Modifier.weight(1f)) {
-                                Text("Rápida", fontSize = 12.sp)
+                            }, modifier = Modifier.weight(0.8f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) {
+                                Text("Rápido", fontSize = 13.sp, maxLines = 1)
                             }
                             Button(onClick = {
                                 paymentDialogAppt = null
                                 navController.navigate("collect_qr/${appt.id}")
-                            }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)), contentPadding = PaddingValues(horizontal = 8.dp)) {
-                                Icon(Icons.Filled.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Cobrar QR", fontSize = 12.sp)
+                            }, modifier = Modifier.weight(1.2f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Cobrar", fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text("QR / CVU / Alias", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))

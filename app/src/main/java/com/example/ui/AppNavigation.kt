@@ -13,13 +13,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
-sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    object Dashboard : Screen("dashboard", "Dashboard", Icons.Filled.Dashboard)
-    object Billing : Screen("billing", "Pagos", Icons.Filled.AttachMoney)
+sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified) {
+    object Dashboard : Screen("dashboard", "Dashboard", Icons.Filled.Dashboard, androidx.compose.ui.graphics.Color(0xFF6200EE))
+    object Billing : Screen("billing", "Pagos", Icons.Filled.AttachMoney, androidx.compose.ui.graphics.Color(0xFFFF9800))
     object Clients : Screen("clients", "Clientes", Icons.Filled.People)
-    object Services : Screen("services", "Servicios", Icons.Filled.ContentCut) // Fallback to contentcut or similar
-    object Agenda : Screen("agenda", "Agenda", Icons.Filled.CalendarMonth)
-    object Settings : Screen("settings", "Ajustes", Icons.Filled.Settings)
+    object Services : Screen("services", "Servicios", Icons.Filled.ContentCut)
+    object Agenda : Screen("agenda", "Agenda", Icons.Filled.CalendarMonth, androidx.compose.ui.graphics.Color(0xFF4CAF50))
+    object Settings : Screen("settings", "Ajustes", Icons.Filled.Settings, androidx.compose.ui.graphics.Color(0xFF2196F3))
 }
 
 val bottomNavItems = listOf(
@@ -36,15 +36,16 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val businessName by viewModel.businessName.collectAsState()
+    val businessColorval by viewModel.businessColor.collectAsState()
 
     Scaffold(
         topBar = {
             if (bottomNavItems.any { it.route == currentRoute } || currentRoute == null) {
                 TopAppBar(
-                    title = { Text(businessName) },
+                    title = { Text(businessName, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = androidx.compose.ui.graphics.Color(businessColorval)
                     )
                 )
             }
@@ -53,10 +54,14 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             if (bottomNavItems.any { it.route == currentRoute } || currentRoute == null) {
                 NavigationBar {
                     bottomNavItems.forEach { item ->
+                        val isSelected = currentRoute == item.route
                         NavigationBarItem(
-                            icon = { Icon(item.icon, contentDescription = item.title) },
-                            label = { Text(item.title) },
-                            selected = currentRoute == item.route,
+                            icon = { Icon(item.icon, contentDescription = item.title, tint = item.color) },
+                            label = { Text(item.title, color = item.color) },
+                            selected = isSelected,
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = item.color.copy(alpha = 0.2f)
+                            ),
                             onClick = {
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -101,6 +106,9 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             }
             composable("settings_hours") {
                 WorkingHoursScreen(viewModel, navController)
+            }
+            composable("settings_agenda") {
+                AgendaSettingsScreen(viewModel, navController)
             }
             composable("settings_vacations") {
                 VacationsScreen(viewModel, navController)

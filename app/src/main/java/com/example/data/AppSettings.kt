@@ -19,6 +19,18 @@ data class Absence(
     val endTime: String = ""
 )
 
+data class NotificationLog(
+    val id: String = UUID.randomUUID().toString(),
+    val scheduledTime: Long,
+    val executedTime: Long = 0L,
+    val type: String,
+    val status: String,
+    val errorMessage: String = "",
+    val originalCalculatedTime: Long = 0L,
+    val timestamp: Long = System.currentTimeMillis(),
+    val actionId: String = ""
+)
+
 class AppSettings(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("barberapp_settings", Context.MODE_PRIVATE)
 
@@ -89,6 +101,10 @@ class AppSettings(context: Context) {
         get() = prefs.getString("businessName", "BarberApp Pro") ?: "BarberApp Pro"
         set(value) = prefs.edit().putString("businessName", value).apply()
 
+    var businessColor: Long
+        get() = prefs.getLong("businessColor", 0xFF6200EE) // Default primary color
+        set(value) = prefs.edit().putLong("businessColor", value).apply()
+
     var turnReminderEnabled: Boolean
         get() = prefs.getBoolean("turnReminderEnabled", false)
         set(value) = prefs.edit().putBoolean("turnReminderEnabled", value).apply()
@@ -105,6 +121,10 @@ class AppSettings(context: Context) {
         get() = prefs.getString("dailyStartReminderTime", "08:00") ?: "08:00"
         set(value) = prefs.edit().putString("dailyStartReminderTime", value).apply()
         
+    var absenceNotificationsEnabled: Boolean
+        get() = prefs.getBoolean("absenceNotificationsEnabled", true)
+        set(value) = prefs.edit().putBoolean("absenceNotificationsEnabled", value).apply()
+
     var absenceReminderDays: Int
         get() = prefs.getInt("absenceReminderDays", 1)
         set(value) = prefs.edit().putInt("absenceReminderDays", value).apply()
@@ -259,4 +279,70 @@ class AppSettings(context: Context) {
         }
         return null // Closed
     }
+
+    var notificationLogsList: List<NotificationLog>
+        get() {
+            val jsonString = prefs.getString("notificationLogsList", "[]") ?: "[]"
+            val list = mutableListOf<NotificationLog>()
+            try {
+                val array = JSONArray(jsonString)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(NotificationLog(
+                        id = obj.optString("id", UUID.randomUUID().toString()),
+                        scheduledTime = obj.optLong("scheduledTime", 0L),
+                        executedTime = obj.optLong("executedTime", 0L),
+                        type = obj.optString("type", ""),
+                        status = obj.optString("status", ""),
+                        errorMessage = obj.optString("errorMessage", ""),
+                        originalCalculatedTime = obj.optLong("originalCalculatedTime", 0L),
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        actionId = obj.optString("actionId", "")
+                    ))
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+            return list.sortedByDescending { it.timestamp }
+        }
+        set(value) {
+            val array = JSONArray()
+            val toSave = value.sortedByDescending { it.timestamp }.take(50) // keep last 50
+            for (log in toSave) {
+                val obj = JSONObject()
+                obj.put("id", log.id)
+                obj.put("scheduledTime", log.scheduledTime)
+                obj.put("executedTime", log.executedTime)
+                obj.put("type", log.type)
+                obj.put("status", log.status)
+                obj.put("errorMessage", log.errorMessage)
+                obj.put("originalCalculatedTime", log.originalCalculatedTime)
+                obj.put("timestamp", log.timestamp)
+                obj.put("actionId", log.actionId)
+                array.put(obj)
+            }
+            prefs.edit().putString("notificationLogsList", array.toString()).apply()
+        }
+
+    var notificationDiagnosticJson: String
+        get() = prefs.getString("notificationDiagnosticJson", "{}") ?: "{}"
+        set(value) = prefs.edit().putString("notificationDiagnosticJson", value).apply()
+
+    var cleanInstallDetected: Boolean
+        get() = prefs.getBoolean("cleanInstallDetected", false)
+        set(value) = prefs.edit().putBoolean("cleanInstallDetected", value).apply()
+
+    var restoredDataOrigin: String
+        get() = prefs.getString("restoredDataOrigin", "Indeterminado") ?: "Indeterminado"
+        set(value) = prefs.edit().putString("restoredDataOrigin", value).apply()
+
+    var firstRunCompleted: Boolean
+        get() = prefs.getBoolean("firstRunCompleted", false)
+        set(value) = prefs.edit().putBoolean("firstRunCompleted", value).apply()
+
+    var allowAndroidBackup: Boolean
+        get() = prefs.getBoolean("allowAndroidBackup", true)
+        set(value) = prefs.edit().putBoolean("allowAndroidBackup", value).apply()
+
+    var agendaToleranceMinutes: Int
+        get() = prefs.getInt("agendaToleranceMinutes", 15)
+        set(value) = prefs.edit().putInt("agendaToleranceMinutes", value).apply()
 }
