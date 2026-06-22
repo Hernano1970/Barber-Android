@@ -86,27 +86,39 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
             title = { Text("Confirmar Restauración") },
             text = {
                 Column {
-                    Text("Detalles del respaldo:", fontWeight = FontWeight.Bold)
-                    Text("Archivo: ${backupInfo!!.fileName}")
-                    Text("Fecha: ${backupInfo!!.date}")
-                    Text("Versión: ${backupInfo!!.version}")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Contenido:", fontWeight = FontWeight.Bold)
-                    Text("- ${backupInfo!!.clientCount} Clientes")
-                    Text("- ${backupInfo!!.apptCount} Turnos")
-                    Text("- ${backupInfo!!.paymentCount} Pagos")
-                    Text("- ${backupInfo!!.serviceCount} Servicios")
-                    Text("- ${backupInfo!!.absenceCount} Ausencias")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Esta acción reemplazará todos los datos actuales de la aplicación por los contenidos en el respaldo seleccionado. Los datos actuales no podrán recuperarse una vez completada la restauración. ¿Desea continuar?",
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (backupInfo!!.isError) {
+                        Text("Error al leer el respaldo:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text(backupInfo!!.errorMessage, color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No se puede restaurar este archivo porque parece estar corrupto o es de una versión incompatible de la aplicación. Por favor, selecciona otro archivo de respaldo válido.",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Text("Detalles del respaldo:", fontWeight = FontWeight.Bold)
+                        Text("Archivo: ${backupInfo!!.fileName}")
+                        Text("Fecha: ${backupInfo!!.date}")
+                        Text("Versión: ${backupInfo!!.version}")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Contenido:", fontWeight = FontWeight.Bold)
+                        Text("- ${backupInfo!!.clientCount} Clientes")
+                        Text("- ${backupInfo!!.apptCount} Turnos")
+                        Text("- ${backupInfo!!.paymentCount} Pagos")
+                        Text("- ${backupInfo!!.serviceCount} Servicios")
+                        Text("- ${backupInfo!!.absenceCount} Ausencias")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Esta acción reemplazará todos los datos actuales de la aplicación por los contenidos en el respaldo seleccionado. Los datos actuales no podrán recuperarse una vez completada la restauración. ¿Desea continuar?",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                if (!backupInfo!!.isError) {
+                    TextButton(onClick = {
                         scope.launch(Dispatchers.IO) {
                             val success = BackupHelper.restoreDb(context, selectedRestoreUri!!)
                             withContext(Dispatchers.Main) {
@@ -125,8 +137,9 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                                 selectedRestoreUri = null
                             }
                         }
-                }) {
-                    Text("Restaurar")
+                    }) {
+                        Text("Restaurar")
+                    }
                 }
             },
             dismissButton = {
@@ -460,7 +473,15 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
             items(localBackups) { file ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(file.name, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text(file.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            if (file.name.startsWith("pre_restore_backup_")) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                    Text("Backup Automático de Emergencia", modifier = Modifier.padding(2.dp))
+                                }
+                            }
+                        }
                         val dt = SimpleDateFormat("dd/MM/yyyy HH:mm").format(Date(file.lastModified()))
                         val sizeRaw = file.length()
                         val sizeStr = if (sizeRaw > 1024 * 1024) "${sizeRaw / (1024 * 1024)} MB" else "${sizeRaw / 1024} KB"

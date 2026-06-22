@@ -34,56 +34,56 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
             ListItem(
                 headlineContent = { Text("Perfil del Negocio") },
                 supportingContent = { Text("Nombre, dirección, teléfono") },
-                leadingContent = { Icon(Icons.Filled.Store, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.Store, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF2196F3)) },
                 modifier = Modifier.clickable { navController.navigate("settings_business") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Días y Horarios Laborales") },
                 supportingContent = { Text("Apertura, cierre y días de trabajo") },
-                leadingContent = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.Schedule, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF4CAF50)) },
                 modifier = Modifier.clickable { navController.navigate("settings_hours") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Agenda y Turnos") },
                 supportingContent = { Text("Tolerancia para turnos vencidos") },
-                leadingContent = { Icon(Icons.Filled.Event, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.Event, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF9C27B0)) },
                 modifier = Modifier.clickable { navController.navigate("settings_agenda") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Ausencias Extensas / Parciales") },
                 supportingContent = { Text("Bloquear agenda por período u horario") },
-                leadingContent = { Icon(Icons.Filled.EventBusy, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.EventBusy, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFF44336)) },
                 modifier = Modifier.clickable { navController.navigate("settings_vacations") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Integración de WhatsApp") },
                 supportingContent = { Text("Recordatorios de turnos") },
-                leadingContent = { Icon(Icons.Filled.Chat, contentDescription = null) }, // Add Chat icon fallback
+                leadingContent = { Icon(Icons.Filled.Chat, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF25D366)) }, // Add Chat icon fallback
                 modifier = Modifier.clickable { navController.navigate("settings_whatsapp") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Notificaciones y Recordatorios") },
                 supportingContent = { Text("Alertas de turnos, inicios de jornada y ausencias") },
-                leadingContent = { Icon(Icons.Filled.Notifications, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.Notifications, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFFF9800)) },
                 modifier = Modifier.clickable { navController.navigate("settings_notifications") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Respaldo y Restauración") },
                 supportingContent = { Text("Crear copias de seguridad de la base de datos") },
-                leadingContent = { Icon(Icons.Filled.Backup, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.Backup, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF2196F3)) },
                 modifier = Modifier.clickable { navController.navigate("settings_backup") }
             )
             HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Mis Billeteras") },
                 supportingContent = { Text("Configurar billeteras virtuales para cobros con QR") },
-                leadingContent = { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null) },
+                leadingContent = { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFE91E63)) },
                 modifier = Modifier.clickable { navController.navigate("settings_wallets") }
             )
             HorizontalDivider()

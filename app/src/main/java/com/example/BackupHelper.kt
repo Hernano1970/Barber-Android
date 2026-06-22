@@ -156,7 +156,9 @@ object BackupHelper {
                 AppDatabase::class.java,
                 tempDbFile.absolutePath
             )
-            .fallbackToDestructiveMigration()
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            // Se elimina fallbackToDestructiveMigration() para evitar borrado silente en evaluación.
+            // Si el backup contiene una BD de versión muy antigua o corrupta, Room fallará e informaremos explícitamente en el catch.
             .build()
             
             val dao = tempDb.appointmentDao()
@@ -172,7 +174,15 @@ object BackupHelper {
             var absences = 0
             if (tempPrefsFile.exists()) {
                 val contents = tempPrefsFile.readText()
-                absences = contents.split("start").size - 1 // very rough count without xml parsing
+                try {
+                    val matcher = java.util.regex.Pattern.compile("name=\"absencesList\">([^<]*)</string>").matcher(contents)
+                    if (matcher.find()) {
+                        val jsonStr = matcher.group(1)?.replace("&quot;", "\"") ?: "[]"
+                        absences = org.json.JSONArray(jsonStr).length()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
             
             tempDb.close()
@@ -189,7 +199,18 @@ object BackupHelper {
             )
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
+            return BackupInfo(
+                fileName = getFileName(context, uri),
+                date = "-",
+                version = "-",
+                clientCount = 0,
+                apptCount = 0,
+                paymentCount = 0,
+                serviceCount = 0,
+                absenceCount = 0,
+                isError = true,
+                errorMessage = "Error al leer el archivo de base de datos de respaldo: es de una versión incompatible o está corrupto. (${e.message})"
+            )
         }
     }
 
@@ -204,6 +225,55 @@ object BackupHelper {
             AppDatabase.getDatabase(context).close()
 
             val prefsFile = File(context.applicationInfo.dataDir, "shared_prefs/barberapp_settings.xml")
+            
+            // Crear copia de seguridad temporal de emergencia antes de restaurar
+            try {
+                val appSettings = com.example.data.AppSettings(context)
+                var backupsDir = File(appSettings.backupLocation)
+                if (!backupsDir.exists()) {
+                    if (!backupsDir.mkdirs()) {
+                        backupsDir = File(context.cacheDir, "backups")
+                        if (!backupsDir.exists()) backupsDir.mkdirs()
+                    }
+                }
+                
+                val emergencyBackupName = "pre_restore_backup_${java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())}.zip"
+                val emergencyBackupPath = File(backupsDir, emergencyBackupName)
+                java.util.zip.ZipOutputStream(FileOutputStream(emergencyBackupPath)).use { zos ->
+                    if (currentDB.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("barberapp_database"))
+                        FileInputStream(currentDB).use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                    if (shm.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("barberapp_database-shm"))
+                        FileInputStream(shm).use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                    if (wal.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("barberapp_database-wal"))
+                        FileInputStream(wal).use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                    if (prefsFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("barberapp_settings.xml"))
+                        FileInputStream(prefsFile).use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                }
+                android.util.Log.i("BackupHelper", "Copia de emergencia creada en: ${emergencyBackupPath.absolutePath}")
+                
+                // Rotar los backups de emergencia (mantener últimos 3)
+                val allEmergencyBackups = backupsDir.listFiles()?.filter { it.name.startsWith("pre_restore_backup_") }
+                    ?.sortedByDescending { it.lastModified() }
+                if (allEmergencyBackups != null && allEmergencyBackups.size > 3) {
+                    val toDelete = allEmergencyBackups.drop(3)
+                    toDelete.forEach { it.delete() }
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("BackupHelper", "Fallo al crear copia de emergencia: ${e.message}")
+            }
             
             var foundDb = false
             var foundShm = false
@@ -276,6 +346,8 @@ object BackupHelper {
         val apptCount: Int,
         val paymentCount: Int,
         val serviceCount: Int,
-        val absenceCount: Int
+        val absenceCount: Int,
+        val isError: Boolean = false,
+        val errorMessage: String = ""
     )
 }

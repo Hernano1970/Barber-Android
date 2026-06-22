@@ -45,7 +45,9 @@ abstract class AppDatabase : RoomDatabase() {
                     "barberapp_database"
                 )
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-                .fallbackToDestructiveMigration()
+                // Se eliminó fallbackToDestructiveMigration() para priorizar la seguridad e integridad
+                // de los datos del negocio. Un error de migración lanzará una excepción alertando el
+                // problema, en lugar de reiniciar silenciosamente la base de datos a cero.
                 .build()
                 INSTANCE = instance
                 instance

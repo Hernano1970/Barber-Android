@@ -1,6 +1,8 @@
 package com.example.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -42,7 +44,16 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
         topBar = {
             if (bottomNavItems.any { it.route == currentRoute } || currentRoute == null) {
                 TopAppBar(
-                    title = { Text(businessName, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                    title = { 
+                        androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            coil.compose.AsyncImage(
+                                model = com.example.R.mipmap.ic_launcher,
+                                contentDescription = "App Icon",
+                                modifier = androidx.compose.ui.Modifier.size(36.dp).padding(end = 8.dp)
+                            )
+                            Text(businessName, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) 
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
                         titleContentColor = androidx.compose.ui.graphics.Color(businessColorval)
