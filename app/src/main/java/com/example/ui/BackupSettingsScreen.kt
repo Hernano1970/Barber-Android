@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Activity
+import android.accounts.AccountManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -49,6 +50,25 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
     if (!backupsDir.exists()) backupsDir.mkdirs()
     
     var localBackups by remember { mutableStateOf(backupsDir.listFiles()?.toList() ?: emptyList()) }
+    
+    fun shareBackup(file: File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/zip"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Compartir Respaldo"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Error al compartir: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     fun refreshBackups(dir: File = backupsDir) {
         localBackups = dir.listFiles()?.toList()?.sortedByDescending { it.lastModified() } ?: emptyList()
@@ -123,11 +143,12 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                             val success = BackupHelper.restoreDb(context, selectedRestoreUri!!)
                             withContext(Dispatchers.Main) {
                                 if (success) {
-                                    Toast.makeText(context, "Restauración completada correctamente.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Restauración exitosa. Reiniciando app...", Toast.LENGTH_LONG).show()
                                     // Restart App
                                     val restartIntent = Intent(context, MainActivity::class.java)
-                                    restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    context.startActivity(restartIntent)
+                                    val pendingIntent = android.app.PendingIntent.getActivity(context, 123456, restartIntent, android.app.PendingIntent.FLAG_CANCEL_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+                                    val mgr = context.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+                                    mgr.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 500, pendingIntent)
                                     (context as? Activity)?.finish()
                                     Runtime.getRuntime().exit(0)
                                 } else {
@@ -175,7 +196,7 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                             val file = BackupHelper.createBackup(context)
                             withContext(Dispatchers.Main) {
                                 if (file != null) {
-                                    val successToast = Toast.makeText(context, "Respaldo creado correctamente en:\n${file.absolutePath}", Toast.LENGTH_LONG)
+                                    val successToast = Toast.makeText(context, "Respaldo creado con éxito", Toast.LENGTH_LONG)
                                     // Make the toast show longer or center it? Standard is fine.
                                     successToast.show()
                                     refreshBackups()
@@ -332,9 +353,9 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                         value = maxBackups,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Cantidad máxima de respaldos automáticos almacenados") },
+                        label = { Text("Máximo de respaldos a conservar") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = limitExpanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = limitExpanded,
@@ -359,15 +380,14 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                 
                 val isBackupAllowed = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_ALLOW_BACKUP) != 0
                 
-                Text("Respaldo de Android", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
+                Text("RESPALDO DE ANDROID", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
                 if (isBackupAllowed) {
-                    Text("Estado actual: Activado", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
-                    Text("Android puede realizar copias de seguridad automáticas y restaurar datos desde la cuenta de Google si dicha función está habilitada en el dispositivo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Estado: Activado", style = MaterialTheme.typography.bodySmall)
+                    Text("Android puede respaldar parte de la información automáticamente.", style = MaterialTheme.typography.bodySmall)
                 } else {
-                    Text("Estado actual: Desactivado", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
-                    Text("BarberApp tiene deshabilitado el sistema Auto Backup de Android. Android no realizará copias de seguridad automáticas ni restaurará datos desde la cuenta de Google. La migración de información debe realizarse mediante los respaldos manuales de BarberApp.\n\nNota: Los archivos data_extraction_rules.xml y backup_rules.xml presentes en el proyecto no tienen efecto para copias en la nube mientras esta función esté desactivada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Estado: Desactivado", style = MaterialTheme.typography.bodySmall)
+                    Text("BarberApp utiliza su propio sistema de respaldos.", style = MaterialTheme.typography.bodySmall)
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -440,8 +460,6 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
                                     appSettings.firstRunCompleted = false
                                     appSettings.restoredDataOrigin = "Datos creados manualmente"
                                     
-                                    backupsDir.listFiles()?.forEach { it.delete() }
-                                    
                                     withContext(Dispatchers.Main) {
                                         refreshBackups()
                                         showWipeConfirmDialog = false
@@ -473,15 +491,22 @@ fun BackupSettingsScreen(viewModel: MainViewModel, navController: NavController)
             items(localBackups) { file ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Text(file.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            if (file.name.startsWith("pre_restore_backup_")) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.error) {
-                                    Text("Backup Automático de Emergencia", modifier = Modifier.padding(2.dp))
-                                }
+                        Text(file.name, fontWeight = FontWeight.Bold)
+                        if (file.name.startsWith("pre_restore_backup_")) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text(
+                                    "Backup de Emergencia",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
                             }
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                         val dt = SimpleDateFormat("dd/MM/yyyy HH:mm").format(Date(file.lastModified()))
                         val sizeRaw = file.length()
                         val sizeStr = if (sizeRaw > 1024 * 1024) "${sizeRaw / (1024 * 1024)} MB" else "${sizeRaw / 1024} KB"

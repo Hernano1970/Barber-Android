@@ -3,13 +3,17 @@ package com.example.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -85,73 +89,67 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
         }
     }.sortedByDescending { it.dateTimestamp }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Pagos y Facturación") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+    Surface(color = Color(0xFFF9F9F9), modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             
+            // Header Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFFFF3E0))
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("$", color = Color(0xFFFF9800), fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Pagos y Facturación", color = Color(0xFFFF9800), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
             // Top Cards (horizontal scrollable)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                SummaryCard("Hoy", "$${"%.2f".format(todayIncome)}", Icons.Filled.CalendarToday, MaterialTheme.colorScheme.secondaryContainer)
-                SummaryCard("Esta Semana", "$${"%.2f".format(weekIncome)}", Icons.Filled.ViewWeek, MaterialTheme.colorScheme.tertiaryContainer)
-                SummaryCard("Este Mes", "$${"%.2f".format(monthIncome)}", Icons.Filled.TrendingUp, MaterialTheme.colorScheme.primaryContainer)
-                
-                // Method Breakdown
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Métodos (Mensual)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(modifier = Modifier.width(120.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Efe", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthCash)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Row(modifier = Modifier.width(120.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Tarj", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthCard)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Row(modifier = Modifier.width(120.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Transf.", style = MaterialTheme.typography.bodySmall); Text("$${"%.0f".format(monthTrans)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+                SummaryCard("Hoy", "$${"%.2f".format(todayIncome)}", Icons.Filled.CalendarToday, Color(0xFFE8EAF6), Color(0xFF1A1A1A))
+                SummaryCard("Esta Semana", "$${"%.2f".format(weekIncome)}", Icons.Filled.ViewWeek, Color(0xFFFCE4EC), Color(0xFF1A1A1A))
+                SummaryCard("Este Mes", "$${"%.2f".format(monthIncome)}", Icons.AutoMirrored.Filled.TrendingUp, Color(0xFFE3F2FD), Color(0xFF1A1A1A))
+                MethodsCard(cash = monthCash, card = monthCard, trans = monthTrans)
             }
 
             // Tab row
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.End
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.Center
             ) {
                 val tabs = listOf("Todos", "Pagados", "Deudores")
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFFE8EAF6)
                 ) {
                     Row {
                         tabs.forEach { tab ->
                             val isSelected = selectedTab == tab
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(if (isSelected) Color(0xFF5C6BC0) else Color.Transparent)
                                     .clickable { selectedTab = tab }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .padding(horizontal = 20.dp, vertical = 10.dp)
                             ) {
                                 Text(
                                     text = tab,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) Color.White else Color(0xFF5C6BC0),
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -161,19 +159,19 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
             }
 
             // Table Header
-            val columnWidths = listOf(100.dp, 130.dp, 100.dp, 90.dp, 90.dp, 130.dp, 90.dp, 100.dp)
+            val columnWidths = listOf(110.dp, 130.dp, 120.dp, 90.dp, 90.dp, 130.dp, 90.dp, 100.dp)
             val headerScrollState = rememberScrollState()
             
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(headerScrollState).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("FECHA", modifier = Modifier.width(columnWidths[0]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("CLIENTE", modifier = Modifier.width(columnWidths[1]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("SERVICIO", modifier = Modifier.width(columnWidths[2]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("MÉTODO", modifier = Modifier.width(columnWidths[3]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("ESTADO", modifier = Modifier.width(columnWidths[4]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("FECHA T.", modifier = Modifier.width(columnWidths[5]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("MONTO", modifier = Modifier.width(columnWidths[6]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("", modifier = Modifier.width(columnWidths[7]), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Surface(color = Color(0xFFE8EAF6)) {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(headerScrollState).padding(horizontal = 16.dp, vertical = 16.dp)) {
+                    Text("FECHA", modifier = Modifier.width(columnWidths[0]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("CLIENTE", modifier = Modifier.width(columnWidths[1]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("SERVICIO", modifier = Modifier.width(columnWidths[2]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("MÉTODO", modifier = Modifier.width(columnWidths[3]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("ESTADO", modifier = Modifier.width(columnWidths[4]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("FECHA T.", modifier = Modifier.width(columnWidths[5]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("MONTO", modifier = Modifier.width(columnWidths[6]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
+                    Text("", modifier = Modifier.width(columnWidths[7]), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1A1A1A))
                 }
             }
 
@@ -186,7 +184,7 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                     val dateTimeFormat = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
                     
-                    val dateFormatted = dateFormat.format(Date(appt.dateTimestamp))
+                    val dateFormatted = dateFormat.format(Date(if (appt.createdAt > 0) appt.createdAt else appt.dateTimestamp))
                     val turnFormatted = dateTimeFormat.format(Date(appt.dateTimestamp))
 
                     Row(
@@ -201,11 +199,11 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
                             if (appt.paymentMethod == "Transferencia") "Transf." else appt.paymentMethod
                         } else "-"
 
-                        Text(dateFormatted, modifier = Modifier.width(columnWidths[0]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(client?.fullName ?: "Desconocido", modifier = Modifier.width(columnWidths[1]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(service?.name ?: "Servicio", modifier = Modifier.width(columnWidths[2]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(dateFormatted, modifier = Modifier.width(columnWidths[0]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFF333333))
+                        Text(client?.fullName ?: "Desconocido", modifier = Modifier.width(columnWidths[1]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFF333333))
+                        Text(service?.name ?: "Servicio", modifier = Modifier.width(columnWidths[2]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFF333333))
                         
-                        Text(displayMethod, modifier = Modifier.width(columnWidths[3]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if(appt.isPaid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Text(displayMethod, modifier = Modifier.width(columnWidths[3]), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFF333333))
                         
                         // Estado chip
                         Box(
@@ -437,18 +435,68 @@ fun BillingScreen(viewModel: MainViewModel, navController: NavController) {
 }
 
 @Composable
-fun SummaryCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, bgColor: Color) {
+fun SummaryCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, bgColor: Color, textColor: Color) {
     Card(
         colors = CardDefaults.cardColors(containerColor = bgColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = textColor)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = textColor)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = textColor)
+        }
+    }
+}
+
+@Composable
+fun MethodsCard(cash: Double, card: Double, trans: Double) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Métodos de Pago",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF444444),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Efe.", fontSize = 14.sp, color = Color(0xFF555555))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("$${if (cash == cash.toLong().toDouble()) cash.toLong() else "%.2f".format(cash)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444))
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFCCCCCC)))
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Tarj.", fontSize = 14.sp, color = Color(0xFF555555))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("$${if (card == card.toLong().toDouble()) card.toLong() else "%.2f".format(card)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444))
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFCCCCCC)))
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Transf.", fontSize = 14.sp, color = Color(0xFF555555))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("$${if (trans == trans.toLong().toDouble()) trans.toLong() else "%.2f".format(trans)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444))
+                }
+            }
         }
     }
 }

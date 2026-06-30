@@ -32,7 +32,8 @@ data class Appointment(
     val observations: String,
     val status: String, // Pending, Confirmed, Completed, Cancelled
     val isPaid: Boolean = false,
-    val paymentMethod: String = ""
+    val paymentMethod: String = "",
+    val createdAt: Long = System.currentTimeMillis() // Time when appointment was created
 )
 
 @Entity(tableName = "wallets")

@@ -87,6 +87,13 @@ fun SettingsScreen(viewModel: MainViewModel, navController: NavController) {
                 modifier = Modifier.clickable { navController.navigate("settings_wallets") }
             )
             HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Licencia y Activación") },
+                supportingContent = { Text("Estado de la licencia y activación del dispositivo") },
+                leadingContent = { Icon(Icons.Filled.Security, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF4CAF50)) },
+                modifier = Modifier.clickable { navController.navigate("settings_license") }
+            )
+            HorizontalDivider()
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

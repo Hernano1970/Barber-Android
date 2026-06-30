@@ -29,6 +29,7 @@ import java.util.*
 fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
     val totalClients by viewModel.totalClientCount.collectAsState()
     val todayAppointments by viewModel.todayAppointments.collectAsState()
+    val allAppointments by viewModel.allAppointments.collectAsState()
     val activeServices by viewModel.activeServices.collectAsState()
     val clients by viewModel.clients.collectAsState()
 
@@ -38,19 +39,22 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
         todayIncome += (service?.price ?: 0.0)
     }
 
-    val todayStart = remember {
-        Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-    }
+    val todayStart = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    
+    val todayEnd = todayStart + 24 * 60 * 60 * 1000L
     
     val absencesList = viewModel.appSettings.absencesList.filter { it.end >= todayStart }
     val extensasCount = absencesList.count { !it.isPartial }
     val parcialesCount = absencesList.count { it.isPartial }
     val hasAttentionAbsence = absencesList.any { it.start <= todayStart + 7 * 24 * 60 * 60 * 1000L }
+
+    val activeTodayCount = todayAppointments.count { it.status != "Cancelado" && it.status != "Eliminado" }
+    val activeUpcomingCount = allAppointments.count { it.dateTimestamp >= todayEnd && it.status != "Cancelado" && it.status != "Eliminado" }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("Panel de Control", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -59,7 +63,7 @@ fun DashboardScreen(viewModel: MainViewModel, navController: NavController) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             StatCard(
                 title = "Turnos Hoy / Próximos",
-                value = todayAppointments.size.toString(),
+                value = "$activeTodayCount / $activeUpcomingCount",
                 icon = Icons.Filled.CalendarToday,
                 modifier = Modifier.weight(1f),
                 iconTint = androidx.compose.ui.graphics.Color(0xFF2196F3),
@@ -202,10 +206,36 @@ fun UpcomingAppointmentsScreen(viewModel: MainViewModel, navController: NavContr
 
     val upcomingAppointments = allAppointments.filter { it.dateTimestamp >= today && it.status != "Eliminado" }.sortedBy { it.dateTimestamp }
 
+    val dateFormatForColor = remember { SimpleDateFormat("yyyyMMdd", Locale.getDefault()) }
+    val dateToColorMap = remember(upcomingAppointments) {
+        val uniqueDates = upcomingAppointments.map { dateFormatForColor.format(Date(it.dateTimestamp)) }.distinct()
+        val pastelColors = listOf(
+            Color(0xFFE3F2FD), // Celeste pastel
+            Color(0xFFE8F5E9), // Verde pastel
+            Color(0xFFFFF9C4), // Amarillo pastel
+            Color(0xFFF3E5F5), // Lila pastel
+            Color(0xFFFCE4EC), // Rosa pastel
+            Color(0xFFFFF3E0)  // Durazno pastel
+        )
+        uniqueDates.mapIndexed { index, dateStr ->
+            dateStr to pastelColors[index % pastelColors.size]
+        }.toMap()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Próximos Turnos") },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.CalendarToday,
+                            contentDescription = null,
+                            tint = Color(0xFF1976D2),
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Turnos de Hoy y Próximos", color = Color(0xFF1976D2))
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
@@ -225,10 +255,13 @@ fun UpcomingAppointmentsScreen(viewModel: MainViewModel, navController: NavContr
                     val service = services.find { it.id == appt.serviceId }
                     val dateFormat = SimpleDateFormat("EEEE, dd MMM HH:mm", Locale("es", "ES"))
                     val isPending = !appt.isPaid
+                    
+                    val dateStr = dateFormatForColor.format(Date(appt.dateTimestamp))
+                    val cardColor = dateToColorMap[dateStr] ?: MaterialTheme.colorScheme.surfaceVariant
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(containerColor = cardColor)
                     ) {
                         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -537,8 +570,38 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
         }
     }
 
-    Scaffold { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+            
+            // Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .background(Color(0xFFE8F5E9))
+                    .padding(vertical = 18.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CalendarMonth,
+                        contentDescription = "Agenda",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Agenda",
+                        color = Color(0xFF4CAF50),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
             // Date Selector
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -920,5 +983,4 @@ fun AgendaScreen(viewModel: MainViewModel, navController: NavController) {
                 }
             )
         }
-    }
 }

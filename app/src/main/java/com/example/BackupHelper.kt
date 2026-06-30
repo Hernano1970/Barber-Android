@@ -24,7 +24,7 @@ object BackupHelper {
             database.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").close()
 
             val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault()).format(Date())
-            val backupFileName = "BarberApp_Backup_${timestamp}.db"
+            val backupFileName = "BarberApp_Backup_${timestamp}.zip"
             
             val appSettings = com.example.data.AppSettings(context)
             var backupsDir = File(appSettings.backupLocation)

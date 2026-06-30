@@ -136,6 +136,9 @@ fun BarberApp(viewModel: MainViewModel = viewModel()) {
             composable("settings_wallets") {
                 WalletSettingsScreen(viewModel, navController)
             }
+            composable("settings_license") {
+                com.example.ui.LicenseSettingsScreen(navController)
+            }
             composable("ausencias_read_only") {
                 AusenciasReadOnlyScreen(viewModel, navController)
             }

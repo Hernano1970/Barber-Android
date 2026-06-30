@@ -43,10 +43,36 @@ fun NotificationsSettingsScreen(viewModel: MainViewModel, navController: NavCont
 
     var turnReminderEnabled by remember { mutableStateOf(appSettings.turnReminderEnabled) }
     var turnReminderMinutesText by remember { mutableStateOf(TextFieldValue(appSettings.turnReminderMinutes.toString())) }
+    var turnReminderSelectedOption by remember {
+        mutableStateOf(
+            when (appSettings.turnReminderMinutes) {
+                5 -> "5 minutos"
+                10 -> "10 minutos"
+                15 -> "15 minutos"
+                30 -> "30 minutos"
+                else -> "Personalizado"
+            }
+        )
+    }
+    var turnReminderExpanded by remember { mutableStateOf(false) }
+
     var dailyStartReminderEnabled by remember { mutableStateOf(appSettings.dailyStartReminderEnabled) }
     var dailyStartReminderTime by remember { mutableStateOf(appSettings.dailyStartReminderTime) }
+    
     var absenceNotificationsEnabled by remember { mutableStateOf(appSettings.absenceNotificationsEnabled) }
     var absenceReminderDaysText by remember { mutableStateOf(TextFieldValue(appSettings.absenceReminderDays.toString())) }
+    var absenceReminderSelectedOption by remember {
+        mutableStateOf(
+            when (appSettings.absenceReminderDays) {
+                1 -> "1 día"
+                2 -> "2 días"
+                4 -> "4 días"
+                6 -> "6 días"
+                else -> "Personalizado"
+            }
+        )
+    }
+    var absenceReminderExpanded by remember { mutableStateOf(false) }
     var absenceReminderTimeType by remember { mutableStateOf(appSettings.absenceReminderTimeType) }
     var dailySummaryEnabled by remember { mutableStateOf(appSettings.dailySummaryEnabled) }
     var dailySummaryTime by remember { mutableStateOf(appSettings.dailySummaryTime) }
@@ -204,29 +230,73 @@ fun NotificationsSettingsScreen(viewModel: MainViewModel, navController: NavCont
                 }
             )
             if (turnReminderEnabled) {
+                val turnReminderOptions = listOf("5 minutos", "10 minutos", "15 minutos", "30 minutos", "Personalizado")
                 ListItem(
                     headlineContent = { Text("Tiempo de anticipación") },
-                    supportingContent = { Text("Minutos") },
+                    supportingContent = { Text("Minutos antes del turno") },
                     trailingContent = {
-                        OutlinedTextField(
-                            value = turnReminderMinutesText,
-                            onValueChange = { 
-                                turnReminderMinutesText = it
-                                val parsed = it.text.toIntOrNull()
-                                if (parsed != null && parsed >= 0) {
-                                    appSettings.turnReminderMinutes = parsed
-                                    com.example.NotificationHelper.scheduleAll(context)
+                        ExposedDropdownMenuBox(
+                            expanded = turnReminderExpanded,
+                            onExpandedChange = { turnReminderExpanded = !turnReminderExpanded },
+                            modifier = Modifier.width(150.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = turnReminderSelectedOption,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = turnReminderExpanded) },
+                                modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryEditable, enabled = true)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = turnReminderExpanded,
+                                onDismissRequest = { turnReminderExpanded = false }
+                            ) {
+                                turnReminderOptions.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            turnReminderSelectedOption = option
+                                            turnReminderExpanded = false
+                                            if (option != "Personalizado") {
+                                                val minutes = option.split(" ")[0].toIntOrNull()
+                                                if (minutes != null) {
+                                                    appSettings.turnReminderMinutes = minutes
+                                                    turnReminderMinutesText = TextFieldValue(minutes.toString())
+                                                    com.example.NotificationHelper.scheduleAll(context)
+                                                }
+                                            }
+                                        }
+                                    )
                                 }
-                            },
-                            modifier = Modifier.width(100.dp).onFocusChanged { state ->
-                                if (state.isFocused) {
-                                    turnReminderMinutesText = turnReminderMinutesText.copy(selection = TextRange(0, turnReminderMinutesText.text.length))
-                                }
-                            },
-                            singleLine = true
-                        )
+                            }
+                        }
                     }
                 )
+                if (turnReminderSelectedOption == "Personalizado") {
+                    ListItem(
+                        headlineContent = { Text("Minutos personalizados") },
+                        trailingContent = {
+                            OutlinedTextField(
+                                value = turnReminderMinutesText,
+                                onValueChange = { 
+                                    turnReminderMinutesText = it
+                                    val parsed = it.text.toIntOrNull()
+                                    if (parsed != null && parsed > 0) {
+                                        appSettings.turnReminderMinutes = parsed
+                                        com.example.NotificationHelper.scheduleAll(context)
+                                    }
+                                },
+                                modifier = Modifier.width(100.dp).onFocusChanged { state ->
+                                    if (state.isFocused) {
+                                        turnReminderMinutesText = turnReminderMinutesText.copy(selection = TextRange(0, turnReminderMinutesText.text.length))
+                                    }
+                                },
+                                isError = turnReminderMinutesText.text.toIntOrNull()?.let { it <= 0 } ?: true,
+                                singleLine = true
+                            )
+                        }
+                    )
+                }
             }
             HorizontalDivider()
 
@@ -368,28 +438,73 @@ fun NotificationsSettingsScreen(viewModel: MainViewModel, navController: NavCont
                 )
             }
             if (absenceNotificationsEnabled) {
+                val absenceReminderOptions = listOf("1 día", "2 días", "4 días", "6 días", "Personalizado")
                 ListItem(
-                    headlineContent = { Text("Días de anticipación para ausencias") },
+                    headlineContent = { Text("Anticipación para ausencias") },
+                    supportingContent = { Text("Días antes de la ausencia") },
                     trailingContent = {
-                        OutlinedTextField(
-                            value = absenceReminderDaysText,
-                            onValueChange = { 
-                                absenceReminderDaysText = it
-                                val parsed = it.text.toIntOrNull()
-                                if (parsed != null && parsed >= 0) {
-                                    appSettings.absenceReminderDays = parsed
-                                    com.example.NotificationHelper.scheduleAll(context)
+                        ExposedDropdownMenuBox(
+                            expanded = absenceReminderExpanded,
+                            onExpandedChange = { absenceReminderExpanded = !absenceReminderExpanded },
+                            modifier = Modifier.width(150.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = absenceReminderSelectedOption,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = absenceReminderExpanded) },
+                                modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryEditable, enabled = true)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = absenceReminderExpanded,
+                                onDismissRequest = { absenceReminderExpanded = false }
+                            ) {
+                                absenceReminderOptions.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            absenceReminderSelectedOption = option
+                                            absenceReminderExpanded = false
+                                            if (option != "Personalizado") {
+                                                val days = option.split(" ")[0].toIntOrNull()
+                                                if (days != null) {
+                                                    appSettings.absenceReminderDays = days
+                                                    absenceReminderDaysText = TextFieldValue(days.toString())
+                                                    com.example.NotificationHelper.scheduleAll(context)
+                                                }
+                                            }
+                                        }
+                                    )
                                 }
-                            },
-                            modifier = Modifier.width(100.dp).onFocusChanged { state ->
-                                if (state.isFocused) {
-                                    absenceReminderDaysText = absenceReminderDaysText.copy(selection = TextRange(0, absenceReminderDaysText.text.length))
-                                }
-                            },
-                            singleLine = true
-                        )
+                            }
+                        }
                     }
                 )
+                if (absenceReminderSelectedOption == "Personalizado") {
+                    ListItem(
+                        headlineContent = { Text("Días personalizados") },
+                        trailingContent = {
+                            OutlinedTextField(
+                                value = absenceReminderDaysText,
+                                onValueChange = { 
+                                    absenceReminderDaysText = it
+                                    val parsed = it.text.toIntOrNull()
+                                    if (parsed != null && parsed > 0) {
+                                        appSettings.absenceReminderDays = parsed
+                                        com.example.NotificationHelper.scheduleAll(context)
+                                    }
+                                },
+                                modifier = Modifier.width(100.dp).onFocusChanged { state ->
+                                    if (state.isFocused) {
+                                        absenceReminderDaysText = absenceReminderDaysText.copy(selection = TextRange(0, absenceReminderDaysText.text.length))
+                                    }
+                                },
+                                isError = absenceReminderDaysText.text.toIntOrNull()?.let { it <= 0 } ?: true,
+                                singleLine = true
+                            )
+                        }
+                    )
+                }
                 
                 var timeTypeExpanded by remember { mutableStateOf(false) }
                 val timeTypeMap = mapOf(

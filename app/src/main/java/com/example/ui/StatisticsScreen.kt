@@ -20,6 +20,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +48,7 @@ fun StatisticsScreen(viewModel: MainViewModel, navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Estadísticas", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text("Estadísticas", color = Color(0xFFFF9800), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -164,13 +169,13 @@ fun StatisticsScreen(viewModel: MainViewModel, navController: NavController) {
             // Tarjetas Resumen
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatCardBasic(title = "Total Turnos", value = totalTurnos.toString(), modifier = Modifier.weight(1f))
-                    StatCardBasic(title = "Clientes", value = clientsAtendidos.toString(), modifier = Modifier.weight(1f))
+                    StatCardBasic(title = "Total Turnos", value = totalTurnos.toString(), modifier = Modifier.weight(1f), containerColor = Color(0xFFE3F2FD), textColor = Color(0xFF1A1A1A))
+                    StatCardBasic(title = "Clientes", value = clientsAtendidos.toString(), modifier = Modifier.weight(1f), containerColor = Color(0xFFE8F5E9), textColor = Color(0xFF1A1A1A))
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatCardBasic(title = "Ingresos Totales", value = "$${"%.0f".format(ingresosTotales)}", modifier = Modifier.weight(1f))
-                    StatCardBasic(title = "Promedio/Servicio", value = "$${"%.0f".format(promServicio)}", modifier = Modifier.weight(1f))
+                    StatCardBasic(title = "Ingresos Totales", value = "$${"%.0f".format(ingresosTotales)}", modifier = Modifier.weight(1f), containerColor = Color(0xFFFFF9C4), textColor = Color(0xFF1A1A1A))
+                    StatCardBasic(title = "Promedio/Servicio", value = "$${"%.0f".format(promServicio)}", modifier = Modifier.weight(1f), containerColor = Color(0xFFF3E5F5), textColor = Color(0xFF1A1A1A))
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -306,58 +311,55 @@ fun StatisticsScreen(viewModel: MainViewModel, navController: NavController) {
                 } else {
                     var maxIncome = dailyIncomes.values.maxOrNull()?.toFloat() ?: 1f
                     if (maxIncome <= 0f) maxIncome = 1f
-                    val daysCount = dailyIncomes.size
                     
                     val primaryColor = MaterialTheme.colorScheme.primary
-                    Canvas(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) {
-                        val width = size.width
-                        val height = size.height
-                        
-                        val points = mutableListOf<Offset>()
-                        val keys = dailyIncomes.keys.toList()
-                        
-                        if (keys.size == 1) {
-                            // Point in center
-                            points.add(Offset(width / 2f, height - (dailyIncomes[keys[0]]!!.toFloat() / maxIncome) * height))
-                            drawCircle(color = primaryColor, radius = 6.dp.toPx(), center = points[0])
-                        } else {
-                            val stepX = width / (keys.size - 1)
-                            keys.forEachIndexed { i, key ->
-                                val income = dailyIncomes[key]!!.toFloat()
-                                val x = i * stepX
-                                val y = height - (income / maxIncome) * height
-                                points.add(Offset(x, y))
-                            }
-                            
-                            val path = Path().apply {
-                                moveTo(points[0].x, points[0].y)
-                                for (i in 1 until points.size) {
-                                    lineTo(points[i].x, points[i].y)
-                                }
-                            }
-                            
-                            drawPath(
-                                path = path,
-                                color = primaryColor,
-                                style = Stroke(width = 3.dp.toPx())
+                    
+                    var playAnimation by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { playAnimation = true }
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        dailyIncomes.forEach { (timeInMillis, amount) ->
+                            val heightFraction = (amount.toFloat() / maxIncome).coerceIn(0f, 1f)
+                            val animatedHeightFraction by animateFloatAsState(
+                                targetValue = if (playAnimation) heightFraction else 0f,
+                                animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                                label = "BarAnimation"
                             )
                             
-                            points.forEach { pt ->
-                                drawCircle(color = primaryColor, radius = 4.dp.toPx(), center = pt)
-                            }
-                        }
-                    }
-                    
-                    // X-axis labels (first, middle, last if many)
-                    val keys = dailyIncomes.keys.toList()
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        if (keys.isNotEmpty()) {
-                            Text(dfDay.format(Date(keys.first())), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (keys.size > 2) {
-                                Text(dfDay.format(Date(keys[keys.size / 2])), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (keys.size > 1) {
-                                Text(dfDay.format(Date(keys.last())), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier.fillMaxHeight()
+                            ) {
+                                Spacer(modifier = Modifier.weight((1f - animatedHeightFraction).coerceAtLeast(0.001f)))
+                                
+                                Text(
+                                    text = "$${"%.0f".format(amount)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .width(36.dp)
+                                        .weight(animatedHeightFraction.coerceAtLeast(0.001f))
+                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                        .background(primaryColor)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = dfDay.format(Date(timeInMillis)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -473,18 +475,18 @@ fun StatisticsScreen(viewModel: MainViewModel, navController: NavController) {
 }
 
 @Composable
-fun StatCardBasic(title: String, value: String, modifier: Modifier = Modifier) {
+fun StatCardBasic(title: String, value: String, modifier: Modifier = Modifier, containerColor: Color = MaterialTheme.colorScheme.tertiaryContainer, textColor: Color = MaterialTheme.colorScheme.onTertiaryContainer) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

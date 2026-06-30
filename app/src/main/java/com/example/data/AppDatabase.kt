@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Client::class, Service::class, Appointment::class, Wallet::class], version = 4, exportSchema = false)
+@Database(entities = [Client::class, Service::class, Appointment::class, Wallet::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clientDao(): ClientDao
     abstract fun serviceDao(): ServiceDao
@@ -34,6 +34,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE appointments ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE appointments SET createdAt = dateTimestamp WHERE createdAt = 0")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -44,7 +51,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "barberapp_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 // Se eliminó fallbackToDestructiveMigration() para priorizar la seguridad e integridad
                 // de los datos del negocio. Un error de migración lanzará una excepción alertando el
                 // problema, en lugar de reiniciar silenciosamente la base de datos a cero.

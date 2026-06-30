@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.data.Absence
@@ -66,7 +67,7 @@ fun AusenciasReadOnlyScreen(viewModel: MainViewModel, navController: NavControll
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ausencias Registradas") },
+                title = { Text("Ausencias Registradas", color = Color(0xFFD32F2F)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -122,9 +123,12 @@ fun AbsenceReadOnlyCard(absence: Absence, formatter: SimpleDateFormat, todayStar
         isPast -> "Finalizada"
         else -> "Próxima"
     }
+    
+    val cardBgColor = if (absence.isPartial) Color(0xFFFCE4EC) else Color(0xFFE3F2FD)
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = cardBgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

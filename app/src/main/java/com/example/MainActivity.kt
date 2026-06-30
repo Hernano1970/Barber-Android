@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Force preview refresh 25
 class MainActivity : ComponentActivity() {
+    // Triggering a refresh for the preview
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Argentina/Buenos_Aires"))
@@ -35,15 +37,72 @@ class MainActivity : ComponentActivity() {
         dbError = e.message ?: "Error desconocido"
     }
 
+    val licenseManager = com.example.license.LicenseManager(this)
+
     setContent {
-      MyApplicationTheme {
+      MyApplicationTheme(darkTheme = false, dynamicColor = false) {
         if (dbError != null) {
             DatabaseErrorScreen(
                 errorMessage = dbError!!,
                 onExit = { finish() }
             )
         } else {
-            com.example.ui.BarberApp()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val rememberedLicenseManager = remember { com.example.license.LicenseManager(context) }
+            var isBlocked by remember { mutableStateOf(rememberedLicenseManager.shouldBlockApp()) }
+            var warningMsg by remember { mutableStateOf(rememberedLicenseManager.getWarningMessage()) }
+            var showWarningDialog by remember { mutableStateOf(warningMsg != null) }
+
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_START || event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        isBlocked = rememberedLicenseManager.shouldBlockApp()
+                        warningMsg = rememberedLicenseManager.getWarningMessage()
+                        showWarningDialog = warningMsg != null
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                while(true) {
+                    kotlinx.coroutines.delay(60000)
+                    isBlocked = rememberedLicenseManager.shouldBlockApp()
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                com.example.ui.BarberApp()
+                
+                if (isBlocked) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        com.example.ui.LicenseBlockedScreen(
+                            onLicenseActivated = { 
+                                isBlocked = rememberedLicenseManager.shouldBlockApp()
+                                warningMsg = rememberedLicenseManager.getWarningMessage()
+                                showWarningDialog = warningMsg != null
+                            }
+                        )
+                    }
+                }
+                
+                if (!isBlocked && showWarningDialog && warningMsg != null) {
+                    AlertDialog(
+                        onDismissRequest = { showWarningDialog = false },
+                        title = { Text("Aviso de Licencia") },
+                        text = { Text(warningMsg!!) },
+                        confirmButton = {
+                            TextButton(onClick = { showWarningDialog = false }) {
+                                Text("Entendido")
+                            }
+                        }
+                    )
+                }
+            }
         }
       }
     }
